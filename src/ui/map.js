@@ -1411,6 +1411,7 @@ class Map extends Camera {
 
     /**
      * Removes feature state, setting it back to the default behavior. If only
+<<<<<<< HEAD
      * source is specified, removes all states of that source. If
      * target.id is also specified, removes all keys for that feature's state.
      * If target.key is also specified, removes that key from that feature's state.
