@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -ex
-BRANCH="${1}"
+BRANCH="${1?Please specify a branch or tag}"
 echo "Rebasing from ${BRANCH}..."
-sleep 5
 git fetch --tags origin ${BRANCH}
 git rebase ${BRANCH}
