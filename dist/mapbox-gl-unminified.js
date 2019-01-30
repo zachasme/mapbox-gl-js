@@ -26270,6 +26270,34 @@ var Style = function (Evented) {
         this.stylesheet = nextState;
         return true;
     };
+    Style.prototype.setLayers = function setLayers(nextLayers) {
+        var this$1 = this;
+        this._checkLoaded();
+        nextLayers = __chunk_1.clone(nextLayers);
+        nextLayers = derefLayers(nextLayers);
+        var changes = diffStyles(this._serializeLayers(this._order), nextLayers).filter(function (op) {
+            return !(op.command in ignoredDiffOperations);
+        });
+        if (changes.length === 0) {
+            return false;
+        }
+        var unimplementedOps = changes.filter(function (op) {
+            return !(op.command in supportedDiffOperations);
+        });
+        if (unimplementedOps.length > 0) {
+            throw new Error('Unimplemented: ' + unimplementedOps.map(function (op) {
+                return op.command;
+            }).join(', ') + '.');
+        }
+        changes.forEach(function (op) {
+            if (op.command === 'setTransition') {
+                return;
+            }
+            this$1[op.command].apply(this$1, op.args);
+        });
+        this.stylesheet = __chunk_1.extend({}, this.stylesheet, { layers: nextLayers });
+        return true;
+    };
     Style.prototype.addImage = function addImage(id, image) {
         if (this.getImage(id)) {
             return this.fire(new __chunk_1.ErrorEvent(new Error('An image with this name already exists.')));
@@ -34956,6 +34984,12 @@ var Map = function (Camera$$1) {
             this.style.loadURL(style);
         } else {
             this.style.loadJSON(style);
+        }
+        return this;
+    };
+    Map.prototype.setLayers = function setLayers(layers) {
+        if (this.style.setLayers(layers)) {
+            this._update(true);
         }
         return this;
     };
