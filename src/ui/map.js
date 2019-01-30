@@ -1014,6 +1014,13 @@ class Map extends Camera {
         }
     }
 
+    setLayers(layers: Array<LayerSpecification>) {
+        if (this.style.setLayers(layers)) {
+            this._update(true);
+        }
+        return this;
+    }
+
     /**
      * Returns the map's Mapbox style object, which can be used to recreate the map's style.
      *
