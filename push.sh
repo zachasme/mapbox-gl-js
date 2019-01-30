@@ -5,4 +5,5 @@ TAG="${1?Please specify a tag}"
 git add -A .
 git commit -m "build ${TAG}"
 git tag ${TAG}
-git push fork otgm --force --tags
+git push fork ${TAG} --force
+git push fork otgm --force
