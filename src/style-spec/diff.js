@@ -390,4 +390,4 @@ function diffStyles(before, after) {
 }
 
 export default diffStyles;
-export { operations };
+export { operations, diffLayers };
