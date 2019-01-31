@@ -6285,6 +6285,8 @@
       return group;
   }
   function diffLayers(before, after, commands) {
+      if (commands === void 0)
+          commands = [];
       before = before || [];
       after = after || [];
       var beforeOrder = before.map(pluckId);
