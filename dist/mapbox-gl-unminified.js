@@ -25968,7 +25968,7 @@ var Style = (function (Evented) {
         this._checkLoaded();
         nextLayers = __chunk_1.clone(nextLayers);
         nextLayers = derefLayers(nextLayers);
-        var changes = diffStyles(this._serializeLayers(this._order), nextLayers).filter(function (op) { return !(op.command in ignoredDiffOperations); });
+        var changes = diffLayers(this._serializeLayers(this._order), nextLayers).filter(function (op) { return !(op.command in ignoredDiffOperations); });
         if (changes.length === 0) {
             return false;
         }
