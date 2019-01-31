@@ -24197,6 +24197,7 @@ function diffLayers(before, after, commands) {
             }
         }
     }
+    return commands;
 }
 function diffStyles(before, after) {
     if (!before)

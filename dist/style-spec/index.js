@@ -6417,6 +6417,7 @@
               }
           }
       }
+      return commands;
   }
   function diffStyles(before, after) {
       if (!before) {
