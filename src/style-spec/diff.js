@@ -189,7 +189,7 @@ function indexById(group, layer) {
     return group;
 }
 
-function diffLayers(before, after, commands) {
+function diffLayers(before, after, commands = []) {
     before = before || [];
     after = after || [];
 
