@@ -296,6 +296,7 @@ function diffLayers(before, after, commands = []) {
             }
         }
     }
+    return commands;
 }
 
 /**
