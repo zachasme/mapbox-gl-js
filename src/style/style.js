@@ -27,7 +27,7 @@ import GeoJSONSource from '../source/geojson_source';
 import styleSpec from '../style-spec/reference/latest';
 import getWorkerPool from '../util/global_worker_pool';
 import deref from '../style-spec/deref';
-import diffStyles, {operations as diffOperations} from '../style-spec/diff';
+import diffStyles, {diffLayers, operations as diffOperations} from '../style-spec/diff';
 import {
     registerForPluginAvailability,
     evented as rtlTextPluginEvented
@@ -474,7 +474,7 @@ class Style extends Evented {
         nextLayers = clone(nextLayers);
         nextLayers = deref(nextLayers);
 
-        const changes = diffStyles(this._serializeLayers(this._order), nextLayers)
+        const changes = diffLayers(this._serializeLayers(this._order), nextLayers)
             .filter(op => !(op.command in ignoredDiffOperations));
 
         if (changes.length === 0) {
