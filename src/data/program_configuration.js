@@ -677,6 +677,7 @@ export default class ProgramConfiguration {
         for (const property in this.binders) {
             const binder = this.binders[property];
             for (const uniformName of binder.uniformNames) {
+                if (!uniformBindings[uniformName]) continue;
                 binder.setUniforms(context, uniformBindings[uniformName], globals, properties.get(property), uniformName);
             }
         }
