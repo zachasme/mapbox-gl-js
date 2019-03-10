@@ -9703,7 +9703,9 @@ ProgramConfiguration.prototype.setUniforms = function setUniforms (context, unif
         for (var i = 0, list = binder.uniformNames; i < list.length; i += 1) {
             var uniformName = list[i];
 
-                binder.setUniforms(context, uniformBindings[uniformName], globals, properties.get(property), uniformName);
+                if (!uniformBindings[uniformName])
+                { continue; }
+            binder.setUniforms(context, uniformBindings[uniformName], globals, properties.get(property), uniformName);
         }
     }
 };
