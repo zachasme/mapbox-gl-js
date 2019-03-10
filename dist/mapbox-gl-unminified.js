@@ -33379,7 +33379,7 @@ function bindHandlers(map, options) {
     }
     function onClick(e) {
         var pos = DOM.mousePos(el, e);
-        if (pos.equals(startPos) || pos.dist(startPos) < options.clickTolerance) {
+        if (!startPos || pos.equals(startPos) || pos.dist(startPos) < options.clickTolerance) {
             map.fire(new MapMouseEvent('click', map, e));
         }
     }
