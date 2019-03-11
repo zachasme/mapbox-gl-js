@@ -18354,7 +18354,7 @@ Actor.prototype.receive = function receive (message) {
         this.callbacks[data.id] = null;
         var cancelable = this.parent[data.type](data.sourceMapId, deserialize(data.data), done);
         if (cancelable && this.callbacks[data.id] === null) {
-            this.callbacks[data.id] = cancelable;
+            this.callbacks[data.id] = cancelable.cancel;
         }
     } else if (typeof data.id !== 'undefined' && this.parent.getWorkerSource) {
         var keys = data.type.split('.');
