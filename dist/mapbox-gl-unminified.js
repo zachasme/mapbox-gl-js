@@ -1,9 +1,9 @@
-/* Mapbox GL JS is licensed under the 3-Clause BSD License. Full text of license: https://github.com/mapbox/mapbox-gl-js/blob/v0.52.0/LICENSE.txt */
+/* Mapbox GL JS is licensed under the 3-Clause BSD License. Full text of license: https://github.com/mapbox/mapbox-gl-js/blob/v0.53.1/LICENSE.txt */
 (function (global, factory) {
 typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
 typeof define === 'function' && define.amd ? define(factory) :
-(global.mapboxgl = factory());
-}(this, (function () { 'use strict';
+(global = global || self, global.mapboxgl = factory());
+}(this, function () { 'use strict';
 
 /* eslint-disable */
 
@@ -32,7 +32,7 @@ function createCommonjsModule(fn, module) {
 	return module = { exports: {} }, fn(module, module.exports), module.exports;
 }
 
-var version = "0.52.0";
+var version = "0.53.1";
 
 var unitbezier = UnitBezier;
 function UnitBezier(p1x, p1y, p2x, p2y) {
@@ -57,16 +57,14 @@ UnitBezier.prototype.sampleCurveDerivativeX = function (t) {
     return (3 * this.ax * t + 2 * this.bx) * t + this.cx;
 };
 UnitBezier.prototype.solveCurveX = function (x, epsilon) {
-    var this$1 = this;
-
     if (typeof epsilon === 'undefined')
         { epsilon = 0.000001; }
     var t0, t1, t2, x2, i;
     for (t2 = x, i = 0; i < 8; i++) {
-        x2 = this$1.sampleCurveX(t2) - x;
+        x2 = this.sampleCurveX(t2) - x;
         if (Math.abs(x2) < epsilon)
             { return t2; }
-        var d2 = this$1.sampleCurveDerivativeX(t2);
+        var d2 = this.sampleCurveDerivativeX(t2);
         if (Math.abs(d2) < 0.000001)
             { break; }
         t2 = t2 - x2 / d2;
@@ -79,7 +77,7 @@ UnitBezier.prototype.solveCurveX = function (x, epsilon) {
     if (t2 > t1)
         { return t1; }
     while (t0 < t1) {
-        x2 = this$1.sampleCurveX(t2);
+        x2 = this.sampleCurveX(t2);
         if (Math.abs(x2 - x) < epsilon)
             { return t2; }
         if (x > x2) {
@@ -368,20 +366,16 @@ function endsWith(string, suffix) {
     return string.indexOf(suffix, string.length - suffix.length) !== -1;
 }
 function mapObject(input, iterator, context) {
-    var this$1 = this;
-
     var output = {};
     for (var key in input) {
-        output[key] = iterator.call(context || this$1, input[key], key, input);
+        output[key] = iterator.call(context || this, input[key], key, input);
     }
     return output;
 }
 function filterObject(input, iterator, context) {
-    var this$1 = this;
-
     var output = {};
     for (var key in input) {
-        if (iterator.call(context || this$1, input[key], key, input)) {
+        if (iterator.call(context || this, input[key], key, input)) {
             output[key] = input[key];
         }
     }
@@ -464,6 +458,16 @@ function storageAvailable(type) {
         return false;
     }
 }
+function b64EncodeUnicode(str) {
+    return self.btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function (match, p1) {
+        return String.fromCharCode(Number('0x' + p1));
+    }));
+}
+function b64DecodeUnicode(str) {
+    return decodeURIComponent(self.atob(str).split('').map(function (c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+}
 
 var now = self.performance && self.performance.now ? self.performance.now.bind(self.performance) : Date.now.bind(Date);
 var raf = self.requestAnimationFrame || self.mozRequestAnimationFrame || self.webkitRequestAnimationFrame || self.msRequestAnimationFrame;
@@ -499,12 +503,18 @@ var exported = {
 var config = {
     API_URL: 'https://api.mapbox.com',
     get EVENTS_URL() {
+        if (!this.API_URL) {
+            return null;
+        }
         if (this.API_URL.indexOf('https://api.mapbox.cn') === 0) {
             return 'https://events.mapbox.cn/events/v2';
-        } else {
+        } else if (this.API_URL.indexOf('https://api.mapbox.com') === 0) {
             return 'https://events.mapbox.com/events/v2';
+        } else {
+            return null;
         }
     },
+    FEEDBACK_URL: 'https://apps.mapbox.com/feedback',
     REQUIRE_ACCESS_TOKEN: true,
     ACCESS_TOKEN: null,
     MAX_PARALLEL_IMAGE_REQUESTS: 16
@@ -517,12 +527,14 @@ var exported$1 = {
 var glForTesting;
 var webpCheckComplete = false;
 var webpImgTest;
+var webpImgTestOnloadComplete = false;
 if (self.document) {
     webpImgTest = self.document.createElement('img');
     webpImgTest.onload = function () {
         if (glForTesting)
             { testWebpTextureUpload(glForTesting); }
         glForTesting = null;
+        webpImgTestOnloadComplete = true;
     };
     webpImgTest.onerror = function () {
         webpCheckComplete = true;
@@ -533,11 +545,11 @@ if (self.document) {
 function testSupport(gl) {
     if (webpCheckComplete || !webpImgTest)
         { return; }
-    if (!webpImgTest.complete) {
+    if (webpImgTestOnloadComplete) {
+        testWebpTextureUpload(gl);
+    } else {
         glForTesting = gl;
-        return;
     }
-    testWebpTextureUpload(gl);
 }
 function testWebpTextureUpload(gl) {
     var texture = gl.createTexture();
@@ -553,7 +565,7 @@ function testWebpTextureUpload(gl) {
     webpCheckComplete = true;
 }
 
-var help = 'See https://www.mapbox.com/api-documentation/#access-tokens';
+var help = 'See https://www.mapbox.com/api-documentation/#access-tokens-and-token-scopes';
 var telemEventKey = 'mapbox.eventData';
 function makeAPIURL(urlObject, accessToken) {
     var apiUrlObject = parseUrl(config.API_URL);
@@ -664,20 +676,42 @@ function formatUrl(obj) {
     var params = obj.params.length ? ("?" + (obj.params.join('&'))) : '';
     return ((obj.protocol) + "://" + (obj.authority) + (obj.path) + params);
 }
+function parseAccessToken(accessToken) {
+    if (!accessToken) {
+        return null;
+    }
+    var parts = accessToken.split('.');
+    if (!parts || parts.length !== 3) {
+        return null;
+    }
+    try {
+        var jsonData = JSON.parse(b64DecodeUnicode(parts[1]));
+        return jsonData;
+    } catch (e) {
+        return null;
+    }
+}
 var TelemetryEvent = function TelemetryEvent(type) {
     this.type = type;
     this.anonId = null;
-    this.eventData = {
-        lastSuccess: null,
-        accessToken: config.ACCESS_TOKEN
-    };
+    this.eventData = {};
     this.queue = [];
     this.pendingRequest = null;
 };
+TelemetryEvent.prototype.getStorageKey = function getStorageKey (domain) {
+    var tokenData = parseAccessToken(config.ACCESS_TOKEN);
+    var u = '';
+    if (tokenData && tokenData['u']) {
+        u = b64EncodeUnicode(tokenData['u']);
+    } else {
+        u = config.ACCESS_TOKEN || '';
+    }
+    return domain ? (telemEventKey + "." + domain + ":" + u) : (telemEventKey + ":" + u);
+};
 TelemetryEvent.prototype.fetchEventData = function fetchEventData () {
     var isLocalStorageAvailable = storageAvailable('localStorage');
-    var storageKey = telemEventKey + ":" + (config.ACCESS_TOKEN || '');
-    var uuidKey = telemEventKey + ".uuid:" + (config.ACCESS_TOKEN || '');
+    var storageKey = this.getStorageKey();
+    var uuidKey = this.getStorageKey('uuid');
     if (isLocalStorageAvailable) {
         try {
             var data = self.localStorage.getItem(storageKey);
@@ -694,12 +728,12 @@ TelemetryEvent.prototype.fetchEventData = function fetchEventData () {
 };
 TelemetryEvent.prototype.saveEventData = function saveEventData () {
     var isLocalStorageAvailable = storageAvailable('localStorage');
-    var storageKey = telemEventKey + ":" + (config.ACCESS_TOKEN || '');
-    var uuidKey = telemEventKey + ".uuid:" + (config.ACCESS_TOKEN || '');
+    var storageKey = this.getStorageKey();
+    var uuidKey = this.getStorageKey('uuid');
     if (isLocalStorageAvailable) {
         try {
             self.localStorage.setItem(uuidKey, this.anonId);
-            if (this.eventData.lastSuccess) {
+            if (Object.keys(this.eventData).length >= 1) {
                 self.localStorage.setItem(storageKey, JSON.stringify(this.eventData));
             }
         } catch (e) {
@@ -712,6 +746,8 @@ TelemetryEvent.prototype.processRequests = function processRequests () {
 TelemetryEvent.prototype.postEvent = function postEvent (timestamp, additionalPayload, callback) {
         var this$1 = this;
 
+    if (!config.EVENTS_URL)
+        { return; }
     var eventsUrlObject = parseUrl(config.EVENTS_URL);
     eventsUrlObject.params.push(("access_token=" + (config.ACCESS_TOKEN || '')));
     var payload = {
@@ -738,7 +774,7 @@ TelemetryEvent.prototype.queueRequest = function queueRequest (event) {
     this.queue.push(event);
     this.processRequests();
 };
-var MapLoadEvent = (function (TelemetryEvent) {
+var MapLoadEvent = /*@__PURE__*/(function (TelemetryEvent) {
     function MapLoadEvent() {
         TelemetryEvent.call(this, 'map.load');
         this.success = {};
@@ -748,7 +784,7 @@ var MapLoadEvent = (function (TelemetryEvent) {
     MapLoadEvent.prototype = Object.create( TelemetryEvent && TelemetryEvent.prototype );
     MapLoadEvent.prototype.constructor = MapLoadEvent;
     MapLoadEvent.prototype.postMapLoadEvent = function postMapLoadEvent (tileUrls, mapId) {
-        if (config.ACCESS_TOKEN && Array.isArray(tileUrls) && tileUrls.some(function (url) { return isMapboxHTTPURL(url); })) {
+        if (config.EVENTS_URL && config.ACCESS_TOKEN && Array.isArray(tileUrls) && tileUrls.some(function (url) { return isMapboxURL(url) || isMapboxHTTPURL(url); })) {
             this.queueRequest({
                 id: mapId,
                 timestamp: Date.now()
@@ -781,7 +817,7 @@ var MapLoadEvent = (function (TelemetryEvent) {
 
     return MapLoadEvent;
 }(TelemetryEvent));
-var TurnstileEvent = (function (TelemetryEvent) {
+var TurnstileEvent = /*@__PURE__*/(function (TelemetryEvent) {
     function TurnstileEvent() {
         TelemetryEvent.call(this, 'appUserTurnstile');
     }
@@ -790,7 +826,7 @@ var TurnstileEvent = (function (TelemetryEvent) {
     TurnstileEvent.prototype = Object.create( TelemetryEvent && TelemetryEvent.prototype );
     TurnstileEvent.prototype.constructor = TurnstileEvent;
     TurnstileEvent.prototype.postTurnstileEvent = function postTurnstileEvent (tileUrls) {
-        if (config.ACCESS_TOKEN && Array.isArray(tileUrls) && tileUrls.some(function (url) { return isMapboxHTTPURL(url); })) {
+        if (config.EVENTS_URL && config.ACCESS_TOKEN && Array.isArray(tileUrls) && tileUrls.some(function (url) { return isMapboxURL(url) || isMapboxHTTPURL(url); })) {
             this.queueRequest(Date.now());
         }
     };
@@ -800,13 +836,12 @@ var TurnstileEvent = (function (TelemetryEvent) {
         if (this.pendingRequest || this.queue.length === 0) {
             return;
         }
-        var dueForEvent = this.eventData.accessToken ? this.eventData.accessToken !== config.ACCESS_TOKEN : false;
-        if (dueForEvent) {
-            this.anonId = this.eventData.lastSuccess = null;
-        }
-        if (!this.anonId || !this.eventData.lastSuccess) {
+        if (!this.anonId || !this.eventData.lastSuccess || !this.eventData.tokenU) {
             this.fetchEventData();
         }
+        var tokenData = parseAccessToken(config.ACCESS_TOKEN);
+        var tokenU = tokenData ? tokenData['u'] : config.ACCESS_TOKEN;
+        var dueForEvent = tokenU !== this.eventData.tokenU;
         if (!validateUuid(this.anonId)) {
             this.anonId = uuid();
             dueForEvent = true;
@@ -826,7 +861,7 @@ var TurnstileEvent = (function (TelemetryEvent) {
         this.postEvent(nextUpdate, { 'enabled.telemetry': false }, function (err) {
             if (!err) {
                 this$1.eventData.lastSuccess = nextUpdate;
-                this$1.eventData.accessToken = config.ACCESS_TOKEN;
+                this$1.eventData.tokenU = tokenU;
             }
         });
     };
@@ -851,10 +886,10 @@ var ResourceType = {
 if (typeof Object.freeze == 'function') {
     Object.freeze(ResourceType);
 }
-var AJAXError = (function (Error) {
+var AJAXError = /*@__PURE__*/(function (Error) {
     function AJAXError(message, status, url) {
         if (status === 401 && isMapboxHTTPURL(url)) {
-            message += ': you may have provided an invalid Mapbox access token. See https://www.mapbox.com/api-documentation/#access-tokens';
+            message += ': you may have provided an invalid Mapbox access token. See https://www.mapbox.com/api-documentation/#access-tokens-and-token-scopes';
         }
         Error.call(this, message);
         this.status = status;
@@ -872,7 +907,10 @@ var AJAXError = (function (Error) {
 
     return AJAXError;
 }(Error));
-var getReferrer = typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && self instanceof WorkerGlobalScope ? function () { return self.worker && self.worker.referrer; } : function () {
+function isWorker() {
+    return typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && self instanceof WorkerGlobalScope;
+}
+var getReferrer = isWorker() ? function () { return self.worker && self.worker.referrer; } : function () {
     var origin = self.location.origin;
     if (origin && origin !== 'null' && origin !== 'file://') {
         return origin + self.location.pathname;
@@ -941,7 +979,17 @@ function makeXMLHttpRequest(requestParameters, callback) {
     xhr.send(requestParameters.body);
     return { cancel: function () { return xhr.abort(); } };
 }
-var makeRequest = self.fetch && self.Request && self.AbortController ? makeFetchRequest : makeXMLHttpRequest;
+var makeRequest = function (requestParameters, callback) {
+    if (!/^file:/.test(requestParameters.url)) {
+        if (self.fetch && self.Request && self.AbortController) {
+            return makeFetchRequest(requestParameters, callback);
+        }
+        if (isWorker() && self.worker && self.worker.actor) {
+            return self.worker.actor.send('getResource', requestParameters, callback);
+        }
+    }
+    return makeXMLHttpRequest(requestParameters, callback);
+};
 var getJSON = function (requestParameters, callback) {
     return makeRequest(extend(requestParameters, { type: 'json' }), callback);
 };
@@ -968,14 +1016,13 @@ var getImage = function (requestParameters, callback) {
         var queued = {
             requestParameters: requestParameters,
             callback: callback,
-            cancelled: false
-        };
-        imageQueue.push(queued);
-        return {
+            cancelled: false,
             cancel: function cancel() {
-                queued.cancelled = true;
+                this.cancelled = true;
             }
         };
+        imageQueue.push(queued);
+        return queued;
     }
     numImageRequests++;
     var advanced = false;
@@ -985,12 +1032,12 @@ var getImage = function (requestParameters, callback) {
         advanced = true;
         numImageRequests--;
         while (imageQueue.length && numImageRequests < config.MAX_PARALLEL_IMAGE_REQUESTS) {
-            var ref = imageQueue.shift();
-            var requestParameters = ref.requestParameters;
-            var callback = ref.callback;
-            var cancelled = ref.cancelled;
+            var request = imageQueue.shift();
+            var requestParameters = request.requestParameters;
+            var callback = request.callback;
+            var cancelled = request.cancelled;
             if (!cancelled) {
-                getImage(requestParameters, callback);
+                request.cancel = getImage(requestParameters, callback).cancel;
             }
         }
     };
@@ -1060,7 +1107,7 @@ var Event = function Event(type, data) {
     extend(this, data);
     this.type = type;
 };
-var ErrorEvent = (function (Event) {
+var ErrorEvent = /*@__PURE__*/(function (Event) {
     function ErrorEvent(error, data) {
         if ( data === void 0 ) data = {};
 
@@ -1091,8 +1138,6 @@ Evented.prototype.once = function once (type, listener) {
     return this;
 };
 Evented.prototype.fire = function fire (event, properties) {
-        var this$1 = this;
-
     if (typeof event === 'string') {
         event = new Event(event, properties || {});
     }
@@ -1103,14 +1148,14 @@ Evented.prototype.fire = function fire (event, properties) {
         for (var i = 0, list = listeners; i < list.length; i += 1) {
             var listener = list[i];
 
-                listener.call(this$1, event);
+                listener.call(this, event);
         }
         var oneTimeListeners = this._oneTimeListeners && this._oneTimeListeners[type] ? this._oneTimeListeners[type].slice() : [];
         for (var i$1 = 0, list$1 = oneTimeListeners; i$1 < list$1.length; i$1 += 1) {
             var listener$1 = list$1[i$1];
 
-                _removeEventListener(type, listener$1, this$1._oneTimeListeners);
-            listener$1.call(this$1, event);
+                _removeEventListener(type, listener$1, this._oneTimeListeners);
+            listener$1.call(this, event);
         }
         var parent = this._eventedParent;
         if (parent) {
@@ -1132,43 +1177,2792 @@ Evented.prototype.setEventedParent = function setEventedParent (parent, data) {
 };
 
 var $version = 8;
-var $root = {"version":{"required":true,"type":"enum","values":[8]},"name":{"type":"string"},"metadata":{"type":"*"},"center":{"type":"array","value":"number"},"zoom":{"type":"number"},"bearing":{"type":"number","default":0,"period":360,"units":"degrees"},"pitch":{"type":"number","default":0,"units":"degrees"},"light":{"type":"light"},"sources":{"required":true,"type":"sources"},"sprite":{"type":"string"},"glyphs":{"type":"string"},"transition":{"type":"transition"},"layers":{"required":true,"type":"array","value":"layer"}};
-var sources = {"*":{"type":"source"}};
-var source = ["source_vector","source_raster","source_raster_dem","source_geojson","source_video","source_image"];
-var source_vector = {"type":{"required":true,"type":"enum","values":{"vector":{}}},"url":{"type":"string"},"tiles":{"type":"array","value":"string"},"bounds":{"type":"array","value":"number","length":4,"default":[-180,-85.051129,180,85.051129]},"scheme":{"type":"enum","values":{"xyz":{},"tms":{}},"default":"xyz"},"minzoom":{"type":"number","default":0},"maxzoom":{"type":"number","default":22},"attribution":{"type":"string"},"*":{"type":"*"}};
-var source_raster = {"type":{"required":true,"type":"enum","values":{"raster":{}}},"url":{"type":"string"},"tiles":{"type":"array","value":"string"},"bounds":{"type":"array","value":"number","length":4,"default":[-180,-85.051129,180,85.051129]},"minzoom":{"type":"number","default":0},"maxzoom":{"type":"number","default":22},"tileSize":{"type":"number","default":512,"units":"pixels"},"scheme":{"type":"enum","values":{"xyz":{},"tms":{}},"default":"xyz"},"attribution":{"type":"string"},"*":{"type":"*"}};
-var source_raster_dem = {"type":{"required":true,"type":"enum","values":{"raster-dem":{}}},"url":{"type":"string"},"tiles":{"type":"array","value":"string"},"bounds":{"type":"array","value":"number","length":4,"default":[-180,-85.051129,180,85.051129]},"minzoom":{"type":"number","default":0},"maxzoom":{"type":"number","default":22},"tileSize":{"type":"number","default":512,"units":"pixels"},"attribution":{"type":"string"},"encoding":{"type":"enum","values":{"terrarium":{},"mapbox":{}},"default":"mapbox"},"*":{"type":"*"}};
-var source_geojson = {"type":{"required":true,"type":"enum","values":{"geojson":{}}},"data":{"type":"*"},"maxzoom":{"type":"number","default":18},"attribution":{"type":"string"},"buffer":{"type":"number","default":128,"maximum":512,"minimum":0},"tolerance":{"type":"number","default":0.375},"cluster":{"type":"boolean","default":false},"clusterRadius":{"type":"number","default":50,"minimum":0},"clusterMaxZoom":{"type":"number"},"lineMetrics":{"type":"boolean","default":false},"generateId":{"type":"boolean","default":false}};
-var source_video = {"type":{"required":true,"type":"enum","values":{"video":{}}},"urls":{"required":true,"type":"array","value":"string"},"coordinates":{"required":true,"type":"array","length":4,"value":{"type":"array","length":2,"value":"number"}}};
-var source_image = {"type":{"required":true,"type":"enum","values":{"image":{}}},"url":{"required":true,"type":"string"},"coordinates":{"required":true,"type":"array","length":4,"value":{"type":"array","length":2,"value":"number"}}};
-var layer = {"id":{"type":"string","required":true},"type":{"type":"enum","values":{"fill":{},"line":{},"symbol":{},"circle":{},"heatmap":{},"fill-extrusion":{},"raster":{},"hillshade":{},"background":{}},"required":true},"metadata":{"type":"*"},"source":{"type":"string"},"source-layer":{"type":"string"},"minzoom":{"type":"number","minimum":0,"maximum":24},"maxzoom":{"type":"number","minimum":0,"maximum":24},"filter":{"type":"filter"},"layout":{"type":"layout"},"paint":{"type":"paint"}};
-var layout = ["layout_fill","layout_line","layout_circle","layout_heatmap","layout_fill-extrusion","layout_symbol","layout_raster","layout_hillshade","layout_background"];
-var layout_background = {"visibility":{"type":"enum","values":{"visible":{},"none":{}},"default":"visible","property-type":"constant"}};
-var layout_fill = {"visibility":{"type":"enum","values":{"visible":{},"none":{}},"default":"visible","property-type":"constant"}};
-var layout_circle = {"visibility":{"type":"enum","values":{"visible":{},"none":{}},"default":"visible","property-type":"constant"}};
-var layout_heatmap = {"visibility":{"type":"enum","values":{"visible":{},"none":{}},"default":"visible","property-type":"constant"}};
-var layout_line = {"line-cap":{"type":"enum","values":{"butt":{},"round":{},"square":{}},"default":"butt","expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"},"line-join":{"type":"enum","values":{"bevel":{},"round":{},"miter":{}},"default":"miter","expression":{"interpolated":false,"parameters":["zoom","feature"]},"property-type":"data-driven"},"line-miter-limit":{"type":"number","default":2,"requires":[{"line-join":"miter"}],"expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"},"line-round-limit":{"type":"number","default":1.05,"requires":[{"line-join":"round"}],"expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"},"visibility":{"type":"enum","values":{"visible":{},"none":{}},"default":"visible","property-type":"constant"}};
-var layout_symbol = {"symbol-placement":{"type":"enum","values":{"point":{},"line":{},"line-center":{}},"default":"point","expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"},"symbol-spacing":{"type":"number","default":250,"minimum":1,"units":"pixels","requires":[{"symbol-placement":"line"}],"expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"},"symbol-avoid-edges":{"type":"boolean","default":false,"expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"},"symbol-z-order":{"type":"enum","values":{"viewport-y":{},"source":{}},"default":"viewport-y","expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"},"icon-allow-overlap":{"type":"boolean","default":false,"requires":["icon-image"],"expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"},"icon-ignore-placement":{"type":"boolean","default":false,"requires":["icon-image"],"expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"},"icon-optional":{"type":"boolean","default":false,"requires":["icon-image","text-field"],"expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"},"icon-rotation-alignment":{"type":"enum","values":{"map":{},"viewport":{},"auto":{}},"default":"auto","requires":["icon-image"],"expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"},"icon-size":{"type":"number","default":1,"minimum":0,"units":"factor of the original icon size","requires":["icon-image"],"expression":{"interpolated":true,"parameters":["zoom","feature"]},"property-type":"data-driven"},"icon-text-fit":{"type":"enum","values":{"none":{},"width":{},"height":{},"both":{}},"default":"none","requires":["icon-image","text-field"],"expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"},"icon-text-fit-padding":{"type":"array","value":"number","length":4,"default":[0,0,0,0],"units":"pixels","requires":["icon-image","text-field",{"icon-text-fit":["both","width","height"]}],"expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"},"icon-image":{"type":"string","tokens":true,"expression":{"interpolated":false,"parameters":["zoom","feature"]},"property-type":"data-driven"},"icon-rotate":{"type":"number","default":0,"period":360,"units":"degrees","requires":["icon-image"],"expression":{"interpolated":true,"parameters":["zoom","feature"]},"property-type":"data-driven"},"icon-padding":{"type":"number","default":2,"minimum":0,"units":"pixels","requires":["icon-image"],"expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"},"icon-keep-upright":{"type":"boolean","default":false,"requires":["icon-image",{"icon-rotation-alignment":"map"},{"symbol-placement":["line","line-center"]}],"expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"},"icon-offset":{"type":"array","value":"number","length":2,"default":[0,0],"requires":["icon-image"],"expression":{"interpolated":true,"parameters":["zoom","feature"]},"property-type":"data-driven"},"icon-anchor":{"type":"enum","values":{"center":{},"left":{},"right":{},"top":{},"bottom":{},"top-left":{},"top-right":{},"bottom-left":{},"bottom-right":{}},"default":"center","requires":["icon-image"],"expression":{"interpolated":false,"parameters":["zoom","feature"]},"property-type":"data-driven"},"icon-pitch-alignment":{"type":"enum","values":{"map":{},"viewport":{},"auto":{}},"default":"auto","requires":["icon-image"],"expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"},"text-pitch-alignment":{"type":"enum","values":{"map":{},"viewport":{},"auto":{}},"default":"auto","requires":["text-field"],"expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"},"text-rotation-alignment":{"type":"enum","values":{"map":{},"viewport":{},"auto":{}},"default":"auto","requires":["text-field"],"expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"},"text-field":{"type":"formatted","default":"","tokens":true,"expression":{"interpolated":false,"parameters":["zoom","feature"]},"property-type":"data-driven"},"text-font":{"type":"array","value":"string","default":["Open Sans Regular","Arial Unicode MS Regular"],"requires":["text-field"],"expression":{"interpolated":false,"parameters":["zoom","feature"]},"property-type":"data-driven"},"text-size":{"type":"number","default":16,"minimum":0,"units":"pixels","requires":["text-field"],"expression":{"interpolated":true,"parameters":["zoom","feature"]},"property-type":"data-driven"},"text-max-width":{"type":"number","default":10,"minimum":0,"units":"ems","requires":["text-field"],"expression":{"interpolated":true,"parameters":["zoom","feature"]},"property-type":"data-driven"},"text-line-height":{"type":"number","default":1.2,"units":"ems","requires":["text-field"],"expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"},"text-letter-spacing":{"type":"number","default":0,"units":"ems","requires":["text-field"],"expression":{"interpolated":true,"parameters":["zoom","feature"]},"property-type":"data-driven"},"text-justify":{"type":"enum","values":{"left":{},"center":{},"right":{}},"default":"center","requires":["text-field"],"expression":{"interpolated":false,"parameters":["zoom","feature"]},"property-type":"data-driven"},"text-anchor":{"type":"enum","values":{"center":{},"left":{},"right":{},"top":{},"bottom":{},"top-left":{},"top-right":{},"bottom-left":{},"bottom-right":{}},"default":"center","requires":["text-field"],"expression":{"interpolated":false,"parameters":["zoom","feature"]},"property-type":"data-driven"},"text-max-angle":{"type":"number","default":45,"units":"degrees","requires":["text-field",{"symbol-placement":["line","line-center"]}],"expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"},"text-rotate":{"type":"number","default":0,"period":360,"units":"degrees","requires":["text-field"],"expression":{"interpolated":true,"parameters":["zoom","feature"]},"property-type":"data-driven"},"text-padding":{"type":"number","default":2,"minimum":0,"units":"pixels","requires":["text-field"],"expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"},"text-keep-upright":{"type":"boolean","default":true,"requires":["text-field",{"text-rotation-alignment":"map"},{"symbol-placement":["line","line-center"]}],"expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"},"text-transform":{"type":"enum","values":{"none":{},"uppercase":{},"lowercase":{}},"default":"none","requires":["text-field"],"expression":{"interpolated":false,"parameters":["zoom","feature"]},"property-type":"data-driven"},"text-offset":{"type":"array","value":"number","units":"ems","length":2,"default":[0,0],"requires":["text-field"],"expression":{"interpolated":true,"parameters":["zoom","feature"]},"property-type":"data-driven"},"text-allow-overlap":{"type":"boolean","default":false,"requires":["text-field"],"expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"},"text-ignore-placement":{"type":"boolean","default":false,"requires":["text-field"],"expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"},"text-optional":{"type":"boolean","default":false,"requires":["text-field","icon-image"],"expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"},"visibility":{"type":"enum","values":{"visible":{},"none":{}},"default":"visible","property-type":"constant"}};
-var layout_raster = {"visibility":{"type":"enum","values":{"visible":{},"none":{}},"default":"visible","property-type":"constant"}};
-var layout_hillshade = {"visibility":{"type":"enum","values":{"visible":{},"none":{}},"default":"visible","property-type":"constant"}};
-var filter = {"type":"array","value":"*"};
-var filter_operator = {"type":"enum","values":{"==":{},"!=":{},">":{},">=":{},"<":{},"<=":{},"in":{},"!in":{},"all":{},"any":{},"none":{},"has":{},"!has":{}}};
-var geometry_type = {"type":"enum","values":{"Point":{},"LineString":{},"Polygon":{}}};
-var function_stop = {"type":"array","minimum":0,"maximum":22,"value":["number","color"],"length":2};
-var expression = {"type":"array","value":"*","minimum":1};
-var expression_name = {"type":"enum","values":{"let":{"group":"Variable binding"},"var":{"group":"Variable binding"},"literal":{"group":"Types"},"array":{"group":"Types"},"at":{"group":"Lookup"},"case":{"group":"Decision"},"match":{"group":"Decision"},"coalesce":{"group":"Decision"},"step":{"group":"Ramps, scales, curves"},"interpolate":{"group":"Ramps, scales, curves"},"interpolate-hcl":{"group":"Ramps, scales, curves"},"interpolate-lab":{"group":"Ramps, scales, curves"},"ln2":{"group":"Math"},"pi":{"group":"Math"},"e":{"group":"Math"},"typeof":{"group":"Types"},"string":{"group":"Types"},"number":{"group":"Types"},"boolean":{"group":"Types"},"object":{"group":"Types"},"collator":{"group":"Types"},"format":{"group":"Types"},"to-string":{"group":"Types"},"to-number":{"group":"Types"},"to-boolean":{"group":"Types"},"to-rgba":{"group":"Color"},"to-color":{"group":"Types"},"rgb":{"group":"Color"},"rgba":{"group":"Color"},"get":{"group":"Lookup"},"has":{"group":"Lookup"},"length":{"group":"Lookup"},"properties":{"group":"Feature data"},"feature-state":{"group":"Feature data"},"geometry-type":{"group":"Feature data"},"id":{"group":"Feature data"},"zoom":{"group":"Zoom"},"heatmap-density":{"group":"Heatmap"},"line-progress":{"group":"Feature data"},"+":{"group":"Math"},"*":{"group":"Math"},"-":{"group":"Math"},"/":{"group":"Math"},"%":{"group":"Math"},"^":{"group":"Math"},"sqrt":{"group":"Math"},"log10":{"group":"Math"},"ln":{"group":"Math"},"log2":{"group":"Math"},"sin":{"group":"Math"},"cos":{"group":"Math"},"tan":{"group":"Math"},"asin":{"group":"Math"},"acos":{"group":"Math"},"atan":{"group":"Math"},"min":{"group":"Math"},"max":{"group":"Math"},"round":{"group":"Math"},"abs":{"group":"Math"},"ceil":{"group":"Math"},"floor":{"group":"Math"},"==":{"group":"Decision"},"!=":{"group":"Decision"},">":{"group":"Decision"},"<":{"group":"Decision"},">=":{"group":"Decision"},"<=":{"group":"Decision"},"all":{"group":"Decision"},"any":{"group":"Decision"},"!":{"group":"Decision"},"is-supported-script":{"group":"String"},"upcase":{"group":"String"},"downcase":{"group":"String"},"concat":{"group":"String"},"resolved-locale":{"group":"String"}}};
-var light = {"anchor":{"type":"enum","default":"viewport","values":{"map":{},"viewport":{}},"property-type":"data-constant","transition":false,"expression":{"interpolated":false,"parameters":["zoom"]}},"position":{"type":"array","default":[1.15,210,30],"length":3,"value":"number","property-type":"data-constant","transition":true,"expression":{"interpolated":true,"parameters":["zoom"]}},"color":{"type":"color","property-type":"data-constant","default":"#ffffff","expression":{"interpolated":true,"parameters":["zoom"]},"transition":true},"intensity":{"type":"number","property-type":"data-constant","default":0.5,"minimum":0,"maximum":1,"expression":{"interpolated":true,"parameters":["zoom"]},"transition":true}};
-var paint = ["paint_fill","paint_line","paint_circle","paint_heatmap","paint_fill-extrusion","paint_symbol","paint_raster","paint_hillshade","paint_background"];
-var paint_fill = {"fill-antialias":{"type":"boolean","default":true,"expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"},"fill-opacity":{"type":"number","default":1,"minimum":0,"maximum":1,"transition":true,"expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"fill-color":{"type":"color","default":"#000000","transition":true,"requires":[{"!":"fill-pattern"}],"expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"fill-outline-color":{"type":"color","transition":true,"requires":[{"!":"fill-pattern"},{"fill-antialias":true}],"expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"fill-translate":{"type":"array","value":"number","length":2,"default":[0,0],"transition":true,"units":"pixels","expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"},"fill-translate-anchor":{"type":"enum","values":{"map":{},"viewport":{}},"default":"map","requires":["fill-translate"],"expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"},"fill-pattern":{"type":"string","transition":true,"expression":{"interpolated":false,"parameters":["zoom","feature"]},"property-type":"cross-faded-data-driven"}};
-var paint_line = {"line-opacity":{"type":"number","default":1,"minimum":0,"maximum":1,"transition":true,"expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"line-color":{"type":"color","default":"#000000","transition":true,"requires":[{"!":"line-pattern"}],"expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"line-translate":{"type":"array","value":"number","length":2,"default":[0,0],"transition":true,"units":"pixels","expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"},"line-translate-anchor":{"type":"enum","values":{"map":{},"viewport":{}},"default":"map","requires":["line-translate"],"expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"},"line-width":{"type":"number","default":1,"minimum":0,"transition":true,"units":"pixels","expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"line-gap-width":{"type":"number","default":0,"minimum":0,"transition":true,"units":"pixels","expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"line-offset":{"type":"number","default":0,"transition":true,"units":"pixels","expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"line-blur":{"type":"number","default":0,"minimum":0,"transition":true,"units":"pixels","expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"line-dasharray":{"type":"array","value":"number","minimum":0,"transition":true,"units":"line widths","requires":[{"!":"line-pattern"}],"expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"cross-faded"},"line-pattern":{"type":"string","transition":true,"expression":{"interpolated":false,"parameters":["zoom","feature"]},"property-type":"cross-faded-data-driven"},"line-gradient":{"type":"color","transition":false,"requires":[{"!":"line-dasharray"},{"!":"line-pattern"},{"source":"geojson","has":{"lineMetrics":true}}],"expression":{"interpolated":true,"parameters":["line-progress"]},"property-type":"color-ramp"}};
-var paint_circle = {"circle-radius":{"type":"number","default":5,"minimum":0,"transition":true,"units":"pixels","expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"circle-color":{"type":"color","default":"#000000","transition":true,"expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"circle-blur":{"type":"number","default":0,"transition":true,"expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"circle-opacity":{"type":"number","default":1,"minimum":0,"maximum":1,"transition":true,"expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"circle-translate":{"type":"array","value":"number","length":2,"default":[0,0],"transition":true,"units":"pixels","expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"},"circle-translate-anchor":{"type":"enum","values":{"map":{},"viewport":{}},"default":"map","requires":["circle-translate"],"expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"},"circle-pitch-scale":{"type":"enum","values":{"map":{},"viewport":{}},"default":"map","expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"},"circle-pitch-alignment":{"type":"enum","values":{"map":{},"viewport":{}},"default":"viewport","expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"},"circle-stroke-width":{"type":"number","default":0,"minimum":0,"transition":true,"units":"pixels","expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"circle-stroke-color":{"type":"color","default":"#000000","transition":true,"expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"circle-stroke-opacity":{"type":"number","default":1,"minimum":0,"maximum":1,"transition":true,"expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"}};
-var paint_heatmap = {"heatmap-radius":{"type":"number","default":30,"minimum":1,"transition":true,"units":"pixels","expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"heatmap-weight":{"type":"number","default":1,"minimum":0,"transition":false,"expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"heatmap-intensity":{"type":"number","default":1,"minimum":0,"transition":true,"expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"},"heatmap-color":{"type":"color","default":["interpolate",["linear"],["heatmap-density"],0,"rgba(0, 0, 255, 0)",0.1,"royalblue",0.3,"cyan",0.5,"lime",0.7,"yellow",1,"red"],"transition":false,"expression":{"interpolated":true,"parameters":["heatmap-density"]},"property-type":"color-ramp"},"heatmap-opacity":{"type":"number","default":1,"minimum":0,"maximum":1,"transition":true,"expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"}};
-var paint_symbol = {"icon-opacity":{"type":"number","default":1,"minimum":0,"maximum":1,"transition":true,"requires":["icon-image"],"expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"icon-color":{"type":"color","default":"#000000","transition":true,"requires":["icon-image"],"expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"icon-halo-color":{"type":"color","default":"rgba(0, 0, 0, 0)","transition":true,"requires":["icon-image"],"expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"icon-halo-width":{"type":"number","default":0,"minimum":0,"transition":true,"units":"pixels","requires":["icon-image"],"expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"icon-halo-blur":{"type":"number","default":0,"minimum":0,"transition":true,"units":"pixels","requires":["icon-image"],"expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"icon-translate":{"type":"array","value":"number","length":2,"default":[0,0],"transition":true,"units":"pixels","requires":["icon-image"],"expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"},"icon-translate-anchor":{"type":"enum","values":{"map":{},"viewport":{}},"default":"map","requires":["icon-image","icon-translate"],"expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"},"text-opacity":{"type":"number","default":1,"minimum":0,"maximum":1,"transition":true,"requires":["text-field"],"expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"text-color":{"type":"color","default":"#000000","transition":true,"requires":["text-field"],"expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"text-halo-color":{"type":"color","default":"rgba(0, 0, 0, 0)","transition":true,"requires":["text-field"],"expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"text-halo-width":{"type":"number","default":0,"minimum":0,"transition":true,"units":"pixels","requires":["text-field"],"expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"text-halo-blur":{"type":"number","default":0,"minimum":0,"transition":true,"units":"pixels","requires":["text-field"],"expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"text-translate":{"type":"array","value":"number","length":2,"default":[0,0],"transition":true,"units":"pixels","requires":["text-field"],"expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"},"text-translate-anchor":{"type":"enum","values":{"map":{},"viewport":{}},"default":"map","requires":["text-field","text-translate"],"expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"}};
-var paint_raster = {"raster-opacity":{"type":"number","default":1,"minimum":0,"maximum":1,"transition":true,"expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"},"raster-hue-rotate":{"type":"number","default":0,"period":360,"transition":true,"units":"degrees","expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"},"raster-brightness-min":{"type":"number","default":0,"minimum":0,"maximum":1,"transition":true,"expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"},"raster-brightness-max":{"type":"number","default":1,"minimum":0,"maximum":1,"transition":true,"expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"},"raster-saturation":{"type":"number","default":0,"minimum":-1,"maximum":1,"transition":true,"expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"},"raster-contrast":{"type":"number","default":0,"minimum":-1,"maximum":1,"transition":true,"expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"},"raster-resampling":{"type":"enum","values":{"linear":{},"nearest":{}},"default":"linear","expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"},"raster-fade-duration":{"type":"number","default":300,"minimum":0,"transition":false,"units":"milliseconds","expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"}};
-var paint_hillshade = {"hillshade-illumination-direction":{"type":"number","default":335,"minimum":0,"maximum":359,"transition":false,"expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"},"hillshade-illumination-anchor":{"type":"enum","values":{"map":{},"viewport":{}},"default":"viewport","expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"},"hillshade-exaggeration":{"type":"number","default":0.5,"minimum":0,"maximum":1,"transition":true,"expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"},"hillshade-shadow-color":{"type":"color","default":"#000000","transition":true,"expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"},"hillshade-highlight-color":{"type":"color","default":"#FFFFFF","transition":true,"expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"},"hillshade-accent-color":{"type":"color","default":"#000000","transition":true,"expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"}};
-var paint_background = {"background-color":{"type":"color","default":"#000000","transition":true,"requires":[{"!":"background-pattern"}],"expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"},"background-pattern":{"type":"string","transition":true,"expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"cross-faded"},"background-opacity":{"type":"number","default":1,"minimum":0,"maximum":1,"transition":true,"expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"}};
-var transition = {"duration":{"type":"number","default":300,"minimum":0,"units":"milliseconds"},"delay":{"type":"number","default":0,"minimum":0,"units":"milliseconds"}};
-var styleSpec = {
+var $root = {
+	version: {
+		required: true,
+		type: "enum",
+		values: [
+			8
+		]
+	},
+	name: {
+		type: "string"
+	},
+	metadata: {
+		type: "*"
+	},
+	center: {
+		type: "array",
+		value: "number"
+	},
+	zoom: {
+		type: "number"
+	},
+	bearing: {
+		type: "number",
+		"default": 0,
+		period: 360,
+		units: "degrees"
+	},
+	pitch: {
+		type: "number",
+		"default": 0,
+		units: "degrees"
+	},
+	light: {
+		type: "light"
+	},
+	sources: {
+		required: true,
+		type: "sources"
+	},
+	sprite: {
+		type: "string"
+	},
+	glyphs: {
+		type: "string"
+	},
+	transition: {
+		type: "transition"
+	},
+	layers: {
+		required: true,
+		type: "array",
+		value: "layer"
+	}
+};
+var sources = {
+	"*": {
+		type: "source"
+	}
+};
+var source = [
+	"source_vector",
+	"source_raster",
+	"source_raster_dem",
+	"source_geojson",
+	"source_video",
+	"source_image"
+];
+var source_vector = {
+	type: {
+		required: true,
+		type: "enum",
+		values: {
+			vector: {
+			}
+		}
+	},
+	url: {
+		type: "string"
+	},
+	tiles: {
+		type: "array",
+		value: "string"
+	},
+	bounds: {
+		type: "array",
+		value: "number",
+		length: 4,
+		"default": [
+			-180,
+			-85.051129,
+			180,
+			85.051129
+		]
+	},
+	scheme: {
+		type: "enum",
+		values: {
+			xyz: {
+			},
+			tms: {
+			}
+		},
+		"default": "xyz"
+	},
+	minzoom: {
+		type: "number",
+		"default": 0
+	},
+	maxzoom: {
+		type: "number",
+		"default": 22
+	},
+	attribution: {
+		type: "string"
+	},
+	"*": {
+		type: "*"
+	}
+};
+var source_raster = {
+	type: {
+		required: true,
+		type: "enum",
+		values: {
+			raster: {
+			}
+		}
+	},
+	url: {
+		type: "string"
+	},
+	tiles: {
+		type: "array",
+		value: "string"
+	},
+	bounds: {
+		type: "array",
+		value: "number",
+		length: 4,
+		"default": [
+			-180,
+			-85.051129,
+			180,
+			85.051129
+		]
+	},
+	minzoom: {
+		type: "number",
+		"default": 0
+	},
+	maxzoom: {
+		type: "number",
+		"default": 22
+	},
+	tileSize: {
+		type: "number",
+		"default": 512,
+		units: "pixels"
+	},
+	scheme: {
+		type: "enum",
+		values: {
+			xyz: {
+			},
+			tms: {
+			}
+		},
+		"default": "xyz"
+	},
+	attribution: {
+		type: "string"
+	},
+	"*": {
+		type: "*"
+	}
+};
+var source_raster_dem = {
+	type: {
+		required: true,
+		type: "enum",
+		values: {
+			"raster-dem": {
+			}
+		}
+	},
+	url: {
+		type: "string"
+	},
+	tiles: {
+		type: "array",
+		value: "string"
+	},
+	bounds: {
+		type: "array",
+		value: "number",
+		length: 4,
+		"default": [
+			-180,
+			-85.051129,
+			180,
+			85.051129
+		]
+	},
+	minzoom: {
+		type: "number",
+		"default": 0
+	},
+	maxzoom: {
+		type: "number",
+		"default": 22
+	},
+	tileSize: {
+		type: "number",
+		"default": 512,
+		units: "pixels"
+	},
+	attribution: {
+		type: "string"
+	},
+	encoding: {
+		type: "enum",
+		values: {
+			terrarium: {
+			},
+			mapbox: {
+			}
+		},
+		"default": "mapbox"
+	},
+	"*": {
+		type: "*"
+	}
+};
+var source_geojson = {
+	type: {
+		required: true,
+		type: "enum",
+		values: {
+			geojson: {
+			}
+		}
+	},
+	data: {
+		type: "*"
+	},
+	maxzoom: {
+		type: "number",
+		"default": 18
+	},
+	attribution: {
+		type: "string"
+	},
+	buffer: {
+		type: "number",
+		"default": 128,
+		maximum: 512,
+		minimum: 0
+	},
+	tolerance: {
+		type: "number",
+		"default": 0.375
+	},
+	cluster: {
+		type: "boolean",
+		"default": false
+	},
+	clusterRadius: {
+		type: "number",
+		"default": 50,
+		minimum: 0
+	},
+	clusterMaxZoom: {
+		type: "number"
+	},
+	clusterProperties: {
+		type: "*"
+	},
+	lineMetrics: {
+		type: "boolean",
+		"default": false
+	},
+	generateId: {
+		type: "boolean",
+		"default": false
+	}
+};
+var source_video = {
+	type: {
+		required: true,
+		type: "enum",
+		values: {
+			video: {
+			}
+		}
+	},
+	urls: {
+		required: true,
+		type: "array",
+		value: "string"
+	},
+	coordinates: {
+		required: true,
+		type: "array",
+		length: 4,
+		value: {
+			type: "array",
+			length: 2,
+			value: "number"
+		}
+	}
+};
+var source_image = {
+	type: {
+		required: true,
+		type: "enum",
+		values: {
+			image: {
+			}
+		}
+	},
+	url: {
+		required: true,
+		type: "string"
+	},
+	coordinates: {
+		required: true,
+		type: "array",
+		length: 4,
+		value: {
+			type: "array",
+			length: 2,
+			value: "number"
+		}
+	}
+};
+var layer = {
+	id: {
+		type: "string",
+		required: true
+	},
+	type: {
+		type: "enum",
+		values: {
+			fill: {
+			},
+			line: {
+			},
+			symbol: {
+			},
+			circle: {
+			},
+			heatmap: {
+			},
+			"fill-extrusion": {
+			},
+			raster: {
+			},
+			hillshade: {
+			},
+			background: {
+			}
+		},
+		required: true
+	},
+	metadata: {
+		type: "*"
+	},
+	source: {
+		type: "string"
+	},
+	"source-layer": {
+		type: "string"
+	},
+	minzoom: {
+		type: "number",
+		minimum: 0,
+		maximum: 24
+	},
+	maxzoom: {
+		type: "number",
+		minimum: 0,
+		maximum: 24
+	},
+	filter: {
+		type: "filter"
+	},
+	layout: {
+		type: "layout"
+	},
+	paint: {
+		type: "paint"
+	}
+};
+var layout = [
+	"layout_fill",
+	"layout_line",
+	"layout_circle",
+	"layout_heatmap",
+	"layout_fill-extrusion",
+	"layout_symbol",
+	"layout_raster",
+	"layout_hillshade",
+	"layout_background"
+];
+var layout_background = {
+	visibility: {
+		type: "enum",
+		values: {
+			visible: {
+			},
+			none: {
+			}
+		},
+		"default": "visible",
+		"property-type": "constant"
+	}
+};
+var layout_fill = {
+	visibility: {
+		type: "enum",
+		values: {
+			visible: {
+			},
+			none: {
+			}
+		},
+		"default": "visible",
+		"property-type": "constant"
+	}
+};
+var layout_circle = {
+	visibility: {
+		type: "enum",
+		values: {
+			visible: {
+			},
+			none: {
+			}
+		},
+		"default": "visible",
+		"property-type": "constant"
+	}
+};
+var layout_heatmap = {
+	visibility: {
+		type: "enum",
+		values: {
+			visible: {
+			},
+			none: {
+			}
+		},
+		"default": "visible",
+		"property-type": "constant"
+	}
+};
+var layout_line = {
+	"line-cap": {
+		type: "enum",
+		values: {
+			butt: {
+			},
+			round: {
+			},
+			square: {
+			}
+		},
+		"default": "butt",
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"line-join": {
+		type: "enum",
+		values: {
+			bevel: {
+			},
+			round: {
+			},
+			miter: {
+			}
+		},
+		"default": "miter",
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom",
+				"feature"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"line-miter-limit": {
+		type: "number",
+		"default": 2,
+		requires: [
+			{
+				"line-join": "miter"
+			}
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"line-round-limit": {
+		type: "number",
+		"default": 1.05,
+		requires: [
+			{
+				"line-join": "round"
+			}
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	visibility: {
+		type: "enum",
+		values: {
+			visible: {
+			},
+			none: {
+			}
+		},
+		"default": "visible",
+		"property-type": "constant"
+	}
+};
+var layout_symbol = {
+	"symbol-placement": {
+		type: "enum",
+		values: {
+			point: {
+			},
+			line: {
+			},
+			"line-center": {
+			}
+		},
+		"default": "point",
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"symbol-spacing": {
+		type: "number",
+		"default": 250,
+		minimum: 1,
+		units: "pixels",
+		requires: [
+			{
+				"symbol-placement": "line"
+			}
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"symbol-avoid-edges": {
+		type: "boolean",
+		"default": false,
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"symbol-sort-key": {
+		type: "number",
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom",
+				"feature"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"symbol-z-order": {
+		type: "enum",
+		values: {
+			auto: {
+			},
+			"viewport-y": {
+			},
+			source: {
+			}
+		},
+		"default": "auto",
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"icon-allow-overlap": {
+		type: "boolean",
+		"default": false,
+		requires: [
+			"icon-image"
+		],
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"icon-ignore-placement": {
+		type: "boolean",
+		"default": false,
+		requires: [
+			"icon-image"
+		],
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"icon-optional": {
+		type: "boolean",
+		"default": false,
+		requires: [
+			"icon-image",
+			"text-field"
+		],
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"icon-rotation-alignment": {
+		type: "enum",
+		values: {
+			map: {
+			},
+			viewport: {
+			},
+			auto: {
+			}
+		},
+		"default": "auto",
+		requires: [
+			"icon-image"
+		],
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"icon-size": {
+		type: "number",
+		"default": 1,
+		minimum: 0,
+		units: "factor of the original icon size",
+		requires: [
+			"icon-image"
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"icon-text-fit": {
+		type: "enum",
+		values: {
+			none: {
+			},
+			width: {
+			},
+			height: {
+			},
+			both: {
+			}
+		},
+		"default": "none",
+		requires: [
+			"icon-image",
+			"text-field"
+		],
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"icon-text-fit-padding": {
+		type: "array",
+		value: "number",
+		length: 4,
+		"default": [
+			0,
+			0,
+			0,
+			0
+		],
+		units: "pixels",
+		requires: [
+			"icon-image",
+			"text-field",
+			{
+				"icon-text-fit": [
+					"both",
+					"width",
+					"height"
+				]
+			}
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"icon-image": {
+		type: "string",
+		tokens: true,
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom",
+				"feature"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"icon-rotate": {
+		type: "number",
+		"default": 0,
+		period: 360,
+		units: "degrees",
+		requires: [
+			"icon-image"
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"icon-padding": {
+		type: "number",
+		"default": 2,
+		minimum: 0,
+		units: "pixels",
+		requires: [
+			"icon-image"
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"icon-keep-upright": {
+		type: "boolean",
+		"default": false,
+		requires: [
+			"icon-image",
+			{
+				"icon-rotation-alignment": "map"
+			},
+			{
+				"symbol-placement": [
+					"line",
+					"line-center"
+				]
+			}
+		],
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"icon-offset": {
+		type: "array",
+		value: "number",
+		length: 2,
+		"default": [
+			0,
+			0
+		],
+		requires: [
+			"icon-image"
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"icon-anchor": {
+		type: "enum",
+		values: {
+			center: {
+			},
+			left: {
+			},
+			right: {
+			},
+			top: {
+			},
+			bottom: {
+			},
+			"top-left": {
+			},
+			"top-right": {
+			},
+			"bottom-left": {
+			},
+			"bottom-right": {
+			}
+		},
+		"default": "center",
+		requires: [
+			"icon-image"
+		],
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom",
+				"feature"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"icon-pitch-alignment": {
+		type: "enum",
+		values: {
+			map: {
+			},
+			viewport: {
+			},
+			auto: {
+			}
+		},
+		"default": "auto",
+		requires: [
+			"icon-image"
+		],
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"text-pitch-alignment": {
+		type: "enum",
+		values: {
+			map: {
+			},
+			viewport: {
+			},
+			auto: {
+			}
+		},
+		"default": "auto",
+		requires: [
+			"text-field"
+		],
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"text-rotation-alignment": {
+		type: "enum",
+		values: {
+			map: {
+			},
+			viewport: {
+			},
+			auto: {
+			}
+		},
+		"default": "auto",
+		requires: [
+			"text-field"
+		],
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"text-field": {
+		type: "formatted",
+		"default": "",
+		tokens: true,
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom",
+				"feature"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"text-font": {
+		type: "array",
+		value: "string",
+		"default": [
+			"Open Sans Regular",
+			"Arial Unicode MS Regular"
+		],
+		requires: [
+			"text-field"
+		],
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom",
+				"feature"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"text-size": {
+		type: "number",
+		"default": 16,
+		minimum: 0,
+		units: "pixels",
+		requires: [
+			"text-field"
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"text-max-width": {
+		type: "number",
+		"default": 10,
+		minimum: 0,
+		units: "ems",
+		requires: [
+			"text-field"
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"text-line-height": {
+		type: "number",
+		"default": 1.2,
+		units: "ems",
+		requires: [
+			"text-field"
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"text-letter-spacing": {
+		type: "number",
+		"default": 0,
+		units: "ems",
+		requires: [
+			"text-field"
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"text-justify": {
+		type: "enum",
+		values: {
+			left: {
+			},
+			center: {
+			},
+			right: {
+			}
+		},
+		"default": "center",
+		requires: [
+			"text-field"
+		],
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom",
+				"feature"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"text-anchor": {
+		type: "enum",
+		values: {
+			center: {
+			},
+			left: {
+			},
+			right: {
+			},
+			top: {
+			},
+			bottom: {
+			},
+			"top-left": {
+			},
+			"top-right": {
+			},
+			"bottom-left": {
+			},
+			"bottom-right": {
+			}
+		},
+		"default": "center",
+		requires: [
+			"text-field"
+		],
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom",
+				"feature"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"text-max-angle": {
+		type: "number",
+		"default": 45,
+		units: "degrees",
+		requires: [
+			"text-field",
+			{
+				"symbol-placement": [
+					"line",
+					"line-center"
+				]
+			}
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"text-rotate": {
+		type: "number",
+		"default": 0,
+		period: 360,
+		units: "degrees",
+		requires: [
+			"text-field"
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"text-padding": {
+		type: "number",
+		"default": 2,
+		minimum: 0,
+		units: "pixels",
+		requires: [
+			"text-field"
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"text-keep-upright": {
+		type: "boolean",
+		"default": true,
+		requires: [
+			"text-field",
+			{
+				"text-rotation-alignment": "map"
+			},
+			{
+				"symbol-placement": [
+					"line",
+					"line-center"
+				]
+			}
+		],
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"text-transform": {
+		type: "enum",
+		values: {
+			none: {
+			},
+			uppercase: {
+			},
+			lowercase: {
+			}
+		},
+		"default": "none",
+		requires: [
+			"text-field"
+		],
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom",
+				"feature"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"text-offset": {
+		type: "array",
+		value: "number",
+		units: "ems",
+		length: 2,
+		"default": [
+			0,
+			0
+		],
+		requires: [
+			"text-field"
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"text-allow-overlap": {
+		type: "boolean",
+		"default": false,
+		requires: [
+			"text-field"
+		],
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"text-ignore-placement": {
+		type: "boolean",
+		"default": false,
+		requires: [
+			"text-field"
+		],
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"text-optional": {
+		type: "boolean",
+		"default": false,
+		requires: [
+			"text-field",
+			"icon-image"
+		],
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	visibility: {
+		type: "enum",
+		values: {
+			visible: {
+			},
+			none: {
+			}
+		},
+		"default": "visible",
+		"property-type": "constant"
+	}
+};
+var layout_raster = {
+	visibility: {
+		type: "enum",
+		values: {
+			visible: {
+			},
+			none: {
+			}
+		},
+		"default": "visible",
+		"property-type": "constant"
+	}
+};
+var layout_hillshade = {
+	visibility: {
+		type: "enum",
+		values: {
+			visible: {
+			},
+			none: {
+			}
+		},
+		"default": "visible",
+		"property-type": "constant"
+	}
+};
+var filter = {
+	type: "array",
+	value: "*"
+};
+var filter_operator = {
+	type: "enum",
+	values: {
+		"==": {
+		},
+		"!=": {
+		},
+		">": {
+		},
+		">=": {
+		},
+		"<": {
+		},
+		"<=": {
+		},
+		"in": {
+		},
+		"!in": {
+		},
+		all: {
+		},
+		any: {
+		},
+		none: {
+		},
+		has: {
+		},
+		"!has": {
+		}
+	}
+};
+var geometry_type = {
+	type: "enum",
+	values: {
+		Point: {
+		},
+		LineString: {
+		},
+		Polygon: {
+		}
+	}
+};
+var function_stop = {
+	type: "array",
+	minimum: 0,
+	maximum: 22,
+	value: [
+		"number",
+		"color"
+	],
+	length: 2
+};
+var expression = {
+	type: "array",
+	value: "*",
+	minimum: 1
+};
+var expression_name = {
+	type: "enum",
+	values: {
+		"let": {
+			group: "Variable binding"
+		},
+		"var": {
+			group: "Variable binding"
+		},
+		literal: {
+			group: "Types"
+		},
+		array: {
+			group: "Types"
+		},
+		at: {
+			group: "Lookup"
+		},
+		"case": {
+			group: "Decision"
+		},
+		match: {
+			group: "Decision"
+		},
+		coalesce: {
+			group: "Decision"
+		},
+		step: {
+			group: "Ramps, scales, curves"
+		},
+		interpolate: {
+			group: "Ramps, scales, curves"
+		},
+		"interpolate-hcl": {
+			group: "Ramps, scales, curves"
+		},
+		"interpolate-lab": {
+			group: "Ramps, scales, curves"
+		},
+		ln2: {
+			group: "Math"
+		},
+		pi: {
+			group: "Math"
+		},
+		e: {
+			group: "Math"
+		},
+		"typeof": {
+			group: "Types"
+		},
+		string: {
+			group: "Types"
+		},
+		number: {
+			group: "Types"
+		},
+		boolean: {
+			group: "Types"
+		},
+		object: {
+			group: "Types"
+		},
+		collator: {
+			group: "Types"
+		},
+		format: {
+			group: "Types"
+		},
+		"number-format": {
+			group: "Types"
+		},
+		"to-string": {
+			group: "Types"
+		},
+		"to-number": {
+			group: "Types"
+		},
+		"to-boolean": {
+			group: "Types"
+		},
+		"to-rgba": {
+			group: "Color"
+		},
+		"to-color": {
+			group: "Types"
+		},
+		rgb: {
+			group: "Color"
+		},
+		rgba: {
+			group: "Color"
+		},
+		get: {
+			group: "Lookup"
+		},
+		has: {
+			group: "Lookup"
+		},
+		length: {
+			group: "Lookup"
+		},
+		properties: {
+			group: "Feature data"
+		},
+		"feature-state": {
+			group: "Feature data"
+		},
+		"geometry-type": {
+			group: "Feature data"
+		},
+		id: {
+			group: "Feature data"
+		},
+		zoom: {
+			group: "Zoom"
+		},
+		"heatmap-density": {
+			group: "Heatmap"
+		},
+		"line-progress": {
+			group: "Feature data"
+		},
+		accumulated: {
+			group: "Feature data"
+		},
+		"+": {
+			group: "Math"
+		},
+		"*": {
+			group: "Math"
+		},
+		"-": {
+			group: "Math"
+		},
+		"/": {
+			group: "Math"
+		},
+		"%": {
+			group: "Math"
+		},
+		"^": {
+			group: "Math"
+		},
+		sqrt: {
+			group: "Math"
+		},
+		log10: {
+			group: "Math"
+		},
+		ln: {
+			group: "Math"
+		},
+		log2: {
+			group: "Math"
+		},
+		sin: {
+			group: "Math"
+		},
+		cos: {
+			group: "Math"
+		},
+		tan: {
+			group: "Math"
+		},
+		asin: {
+			group: "Math"
+		},
+		acos: {
+			group: "Math"
+		},
+		atan: {
+			group: "Math"
+		},
+		min: {
+			group: "Math"
+		},
+		max: {
+			group: "Math"
+		},
+		round: {
+			group: "Math"
+		},
+		abs: {
+			group: "Math"
+		},
+		ceil: {
+			group: "Math"
+		},
+		floor: {
+			group: "Math"
+		},
+		"==": {
+			group: "Decision"
+		},
+		"!=": {
+			group: "Decision"
+		},
+		">": {
+			group: "Decision"
+		},
+		"<": {
+			group: "Decision"
+		},
+		">=": {
+			group: "Decision"
+		},
+		"<=": {
+			group: "Decision"
+		},
+		all: {
+			group: "Decision"
+		},
+		any: {
+			group: "Decision"
+		},
+		"!": {
+			group: "Decision"
+		},
+		"is-supported-script": {
+			group: "String"
+		},
+		upcase: {
+			group: "String"
+		},
+		downcase: {
+			group: "String"
+		},
+		concat: {
+			group: "String"
+		},
+		"resolved-locale": {
+			group: "String"
+		}
+	}
+};
+var light = {
+	anchor: {
+		type: "enum",
+		"default": "viewport",
+		values: {
+			map: {
+			},
+			viewport: {
+			}
+		},
+		"property-type": "data-constant",
+		transition: false,
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		}
+	},
+	position: {
+		type: "array",
+		"default": [
+			1.15,
+			210,
+			30
+		],
+		length: 3,
+		value: "number",
+		"property-type": "data-constant",
+		transition: true,
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		}
+	},
+	color: {
+		type: "color",
+		"property-type": "data-constant",
+		"default": "#ffffff",
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		transition: true
+	},
+	intensity: {
+		type: "number",
+		"property-type": "data-constant",
+		"default": 0.5,
+		minimum: 0,
+		maximum: 1,
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		transition: true
+	}
+};
+var paint = [
+	"paint_fill",
+	"paint_line",
+	"paint_circle",
+	"paint_heatmap",
+	"paint_fill-extrusion",
+	"paint_symbol",
+	"paint_raster",
+	"paint_hillshade",
+	"paint_background"
+];
+var paint_fill = {
+	"fill-antialias": {
+		type: "boolean",
+		"default": true,
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"fill-opacity": {
+		type: "number",
+		"default": 1,
+		minimum: 0,
+		maximum: 1,
+		transition: true,
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"fill-color": {
+		type: "color",
+		"default": "#000000",
+		transition: true,
+		requires: [
+			{
+				"!": "fill-pattern"
+			}
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"fill-outline-color": {
+		type: "color",
+		transition: true,
+		requires: [
+			{
+				"!": "fill-pattern"
+			},
+			{
+				"fill-antialias": true
+			}
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"fill-translate": {
+		type: "array",
+		value: "number",
+		length: 2,
+		"default": [
+			0,
+			0
+		],
+		transition: true,
+		units: "pixels",
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"fill-translate-anchor": {
+		type: "enum",
+		values: {
+			map: {
+			},
+			viewport: {
+			}
+		},
+		"default": "map",
+		requires: [
+			"fill-translate"
+		],
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"fill-pattern": {
+		type: "string",
+		transition: true,
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom",
+				"feature"
+			]
+		},
+		"property-type": "cross-faded-data-driven"
+	}
+};
+var paint_line = {
+	"line-opacity": {
+		type: "number",
+		"default": 1,
+		minimum: 0,
+		maximum: 1,
+		transition: true,
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"line-color": {
+		type: "color",
+		"default": "#000000",
+		transition: true,
+		requires: [
+			{
+				"!": "line-pattern"
+			}
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"line-translate": {
+		type: "array",
+		value: "number",
+		length: 2,
+		"default": [
+			0,
+			0
+		],
+		transition: true,
+		units: "pixels",
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"line-translate-anchor": {
+		type: "enum",
+		values: {
+			map: {
+			},
+			viewport: {
+			}
+		},
+		"default": "map",
+		requires: [
+			"line-translate"
+		],
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"line-width": {
+		type: "number",
+		"default": 1,
+		minimum: 0,
+		transition: true,
+		units: "pixels",
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"line-gap-width": {
+		type: "number",
+		"default": 0,
+		minimum: 0,
+		transition: true,
+		units: "pixels",
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"line-offset": {
+		type: "number",
+		"default": 0,
+		transition: true,
+		units: "pixels",
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"line-blur": {
+		type: "number",
+		"default": 0,
+		minimum: 0,
+		transition: true,
+		units: "pixels",
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"line-dasharray": {
+		type: "array",
+		value: "number",
+		minimum: 0,
+		transition: true,
+		units: "line widths",
+		requires: [
+			{
+				"!": "line-pattern"
+			}
+		],
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "cross-faded"
+	},
+	"line-pattern": {
+		type: "string",
+		transition: true,
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom",
+				"feature"
+			]
+		},
+		"property-type": "cross-faded-data-driven"
+	},
+	"line-gradient": {
+		type: "color",
+		transition: false,
+		requires: [
+			{
+				"!": "line-dasharray"
+			},
+			{
+				"!": "line-pattern"
+			},
+			{
+				source: "geojson",
+				has: {
+					lineMetrics: true
+				}
+			}
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"line-progress"
+			]
+		},
+		"property-type": "color-ramp"
+	}
+};
+var paint_circle = {
+	"circle-radius": {
+		type: "number",
+		"default": 5,
+		minimum: 0,
+		transition: true,
+		units: "pixels",
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"circle-color": {
+		type: "color",
+		"default": "#000000",
+		transition: true,
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"circle-blur": {
+		type: "number",
+		"default": 0,
+		transition: true,
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"circle-opacity": {
+		type: "number",
+		"default": 1,
+		minimum: 0,
+		maximum: 1,
+		transition: true,
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"circle-translate": {
+		type: "array",
+		value: "number",
+		length: 2,
+		"default": [
+			0,
+			0
+		],
+		transition: true,
+		units: "pixels",
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"circle-translate-anchor": {
+		type: "enum",
+		values: {
+			map: {
+			},
+			viewport: {
+			}
+		},
+		"default": "map",
+		requires: [
+			"circle-translate"
+		],
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"circle-pitch-scale": {
+		type: "enum",
+		values: {
+			map: {
+			},
+			viewport: {
+			}
+		},
+		"default": "map",
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"circle-pitch-alignment": {
+		type: "enum",
+		values: {
+			map: {
+			},
+			viewport: {
+			}
+		},
+		"default": "viewport",
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"circle-stroke-width": {
+		type: "number",
+		"default": 0,
+		minimum: 0,
+		transition: true,
+		units: "pixels",
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"circle-stroke-color": {
+		type: "color",
+		"default": "#000000",
+		transition: true,
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"circle-stroke-opacity": {
+		type: "number",
+		"default": 1,
+		minimum: 0,
+		maximum: 1,
+		transition: true,
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	}
+};
+var paint_heatmap = {
+	"heatmap-radius": {
+		type: "number",
+		"default": 30,
+		minimum: 1,
+		transition: true,
+		units: "pixels",
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"heatmap-weight": {
+		type: "number",
+		"default": 1,
+		minimum: 0,
+		transition: false,
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"heatmap-intensity": {
+		type: "number",
+		"default": 1,
+		minimum: 0,
+		transition: true,
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"heatmap-color": {
+		type: "color",
+		"default": [
+			"interpolate",
+			[
+				"linear"
+			],
+			[
+				"heatmap-density"
+			],
+			0,
+			"rgba(0, 0, 255, 0)",
+			0.1,
+			"royalblue",
+			0.3,
+			"cyan",
+			0.5,
+			"lime",
+			0.7,
+			"yellow",
+			1,
+			"red"
+		],
+		transition: false,
+		expression: {
+			interpolated: true,
+			parameters: [
+				"heatmap-density"
+			]
+		},
+		"property-type": "color-ramp"
+	},
+	"heatmap-opacity": {
+		type: "number",
+		"default": 1,
+		minimum: 0,
+		maximum: 1,
+		transition: true,
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	}
+};
+var paint_symbol = {
+	"icon-opacity": {
+		type: "number",
+		"default": 1,
+		minimum: 0,
+		maximum: 1,
+		transition: true,
+		requires: [
+			"icon-image"
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"icon-color": {
+		type: "color",
+		"default": "#000000",
+		transition: true,
+		requires: [
+			"icon-image"
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"icon-halo-color": {
+		type: "color",
+		"default": "rgba(0, 0, 0, 0)",
+		transition: true,
+		requires: [
+			"icon-image"
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"icon-halo-width": {
+		type: "number",
+		"default": 0,
+		minimum: 0,
+		transition: true,
+		units: "pixels",
+		requires: [
+			"icon-image"
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"icon-halo-blur": {
+		type: "number",
+		"default": 0,
+		minimum: 0,
+		transition: true,
+		units: "pixels",
+		requires: [
+			"icon-image"
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"icon-translate": {
+		type: "array",
+		value: "number",
+		length: 2,
+		"default": [
+			0,
+			0
+		],
+		transition: true,
+		units: "pixels",
+		requires: [
+			"icon-image"
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"icon-translate-anchor": {
+		type: "enum",
+		values: {
+			map: {
+			},
+			viewport: {
+			}
+		},
+		"default": "map",
+		requires: [
+			"icon-image",
+			"icon-translate"
+		],
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"text-opacity": {
+		type: "number",
+		"default": 1,
+		minimum: 0,
+		maximum: 1,
+		transition: true,
+		requires: [
+			"text-field"
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"text-color": {
+		type: "color",
+		"default": "#000000",
+		transition: true,
+		requires: [
+			"text-field"
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"text-halo-color": {
+		type: "color",
+		"default": "rgba(0, 0, 0, 0)",
+		transition: true,
+		requires: [
+			"text-field"
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"text-halo-width": {
+		type: "number",
+		"default": 0,
+		minimum: 0,
+		transition: true,
+		units: "pixels",
+		requires: [
+			"text-field"
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"text-halo-blur": {
+		type: "number",
+		"default": 0,
+		minimum: 0,
+		transition: true,
+		units: "pixels",
+		requires: [
+			"text-field"
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"text-translate": {
+		type: "array",
+		value: "number",
+		length: 2,
+		"default": [
+			0,
+			0
+		],
+		transition: true,
+		units: "pixels",
+		requires: [
+			"text-field"
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"text-translate-anchor": {
+		type: "enum",
+		values: {
+			map: {
+			},
+			viewport: {
+			}
+		},
+		"default": "map",
+		requires: [
+			"text-field",
+			"text-translate"
+		],
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	}
+};
+var paint_raster = {
+	"raster-opacity": {
+		type: "number",
+		"default": 1,
+		minimum: 0,
+		maximum: 1,
+		transition: true,
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"raster-hue-rotate": {
+		type: "number",
+		"default": 0,
+		period: 360,
+		transition: true,
+		units: "degrees",
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"raster-brightness-min": {
+		type: "number",
+		"default": 0,
+		minimum: 0,
+		maximum: 1,
+		transition: true,
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"raster-brightness-max": {
+		type: "number",
+		"default": 1,
+		minimum: 0,
+		maximum: 1,
+		transition: true,
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"raster-saturation": {
+		type: "number",
+		"default": 0,
+		minimum: -1,
+		maximum: 1,
+		transition: true,
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"raster-contrast": {
+		type: "number",
+		"default": 0,
+		minimum: -1,
+		maximum: 1,
+		transition: true,
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"raster-resampling": {
+		type: "enum",
+		values: {
+			linear: {
+			},
+			nearest: {
+			}
+		},
+		"default": "linear",
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"raster-fade-duration": {
+		type: "number",
+		"default": 300,
+		minimum: 0,
+		transition: false,
+		units: "milliseconds",
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	}
+};
+var paint_hillshade = {
+	"hillshade-illumination-direction": {
+		type: "number",
+		"default": 335,
+		minimum: 0,
+		maximum: 359,
+		transition: false,
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"hillshade-illumination-anchor": {
+		type: "enum",
+		values: {
+			map: {
+			},
+			viewport: {
+			}
+		},
+		"default": "viewport",
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"hillshade-exaggeration": {
+		type: "number",
+		"default": 0.5,
+		minimum: 0,
+		maximum: 1,
+		transition: true,
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"hillshade-shadow-color": {
+		type: "color",
+		"default": "#000000",
+		transition: true,
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"hillshade-highlight-color": {
+		type: "color",
+		"default": "#FFFFFF",
+		transition: true,
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"hillshade-accent-color": {
+		type: "color",
+		"default": "#000000",
+		transition: true,
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	}
+};
+var paint_background = {
+	"background-color": {
+		type: "color",
+		"default": "#000000",
+		transition: true,
+		requires: [
+			{
+				"!": "background-pattern"
+			}
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"background-pattern": {
+		type: "string",
+		transition: true,
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "cross-faded"
+	},
+	"background-opacity": {
+		type: "number",
+		"default": 1,
+		minimum: 0,
+		maximum: 1,
+		transition: true,
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	}
+};
+var transition = {
+	duration: {
+		type: "number",
+		"default": 300,
+		minimum: 0,
+		units: "milliseconds"
+	},
+	delay: {
+		type: "number",
+		"default": 0,
+		minimum: 0,
+		units: "milliseconds"
+	}
+};
+var spec = {
 	$version: $version,
 	$root: $root,
 	sources: sources,
@@ -1185,6 +3979,19 @@ var styleSpec = {
 	layout_fill: layout_fill,
 	layout_circle: layout_circle,
 	layout_heatmap: layout_heatmap,
+	"layout_fill-extrusion": {
+	visibility: {
+		type: "enum",
+		values: {
+			visible: {
+			},
+			none: {
+			}
+		},
+		"default": "visible",
+		"property-type": "constant"
+	}
+},
 	layout_line: layout_line,
 	layout_symbol: layout_symbol,
 	layout_raster: layout_raster,
@@ -1192,12 +3999,192 @@ var styleSpec = {
 	filter: filter,
 	filter_operator: filter_operator,
 	geometry_type: geometry_type,
+	"function": {
+	expression: {
+		type: "expression"
+	},
+	stops: {
+		type: "array",
+		value: "function_stop"
+	},
+	base: {
+		type: "number",
+		"default": 1,
+		minimum: 0
+	},
+	property: {
+		type: "string",
+		"default": "$zoom"
+	},
+	type: {
+		type: "enum",
+		values: {
+			identity: {
+			},
+			exponential: {
+			},
+			interval: {
+			},
+			categorical: {
+			}
+		},
+		"default": "exponential"
+	},
+	colorSpace: {
+		type: "enum",
+		values: {
+			rgb: {
+			},
+			lab: {
+			},
+			hcl: {
+			}
+		},
+		"default": "rgb"
+	},
+	"default": {
+		type: "*",
+		required: false
+	}
+},
 	function_stop: function_stop,
 	expression: expression,
 	expression_name: expression_name,
 	light: light,
 	paint: paint,
 	paint_fill: paint_fill,
+	"paint_fill-extrusion": {
+	"fill-extrusion-opacity": {
+		type: "number",
+		"default": 1,
+		minimum: 0,
+		maximum: 1,
+		transition: true,
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"fill-extrusion-color": {
+		type: "color",
+		"default": "#000000",
+		transition: true,
+		requires: [
+			{
+				"!": "fill-extrusion-pattern"
+			}
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"fill-extrusion-translate": {
+		type: "array",
+		value: "number",
+		length: 2,
+		"default": [
+			0,
+			0
+		],
+		transition: true,
+		units: "pixels",
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"fill-extrusion-translate-anchor": {
+		type: "enum",
+		values: {
+			map: {
+			},
+			viewport: {
+			}
+		},
+		"default": "map",
+		requires: [
+			"fill-extrusion-translate"
+		],
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	},
+	"fill-extrusion-pattern": {
+		type: "string",
+		transition: true,
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom",
+				"feature"
+			]
+		},
+		"property-type": "cross-faded-data-driven"
+	},
+	"fill-extrusion-height": {
+		type: "number",
+		"default": 0,
+		minimum: 0,
+		units: "meters",
+		transition: true,
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"fill-extrusion-base": {
+		type: "number",
+		"default": 0,
+		minimum: 0,
+		units: "meters",
+		transition: true,
+		requires: [
+			"fill-extrusion-height"
+		],
+		expression: {
+			interpolated: true,
+			parameters: [
+				"zoom",
+				"feature",
+				"feature-state"
+			]
+		},
+		"property-type": "data-driven"
+	},
+	"fill-extrusion-vertical-gradient": {
+		type: "boolean",
+		"default": true,
+		transition: false,
+		expression: {
+			interpolated: false,
+			parameters: [
+				"zoom"
+			]
+		},
+		"property-type": "data-constant"
+	}
+},
 	paint_line: paint_line,
 	paint_circle: paint_circle,
 	paint_heatmap: paint_heatmap,
@@ -1206,10 +4193,26 @@ var styleSpec = {
 	paint_hillshade: paint_hillshade,
 	paint_background: paint_background,
 	transition: transition,
-	"layout_fill-extrusion": {"visibility":{"type":"enum","values":{"visible":{},"none":{}},"default":"visible","property-type":"constant"}},
-	"function": {"expression":{"type":"expression"},"stops":{"type":"array","value":"function_stop"},"base":{"type":"number","default":1,"minimum":0},"property":{"type":"string","default":"$zoom"},"type":{"type":"enum","values":{"identity":{},"exponential":{},"interval":{},"categorical":{}},"default":"exponential"},"colorSpace":{"type":"enum","values":{"rgb":{},"lab":{},"hcl":{}},"default":"rgb"},"default":{"type":"*","required":false}},
-	"paint_fill-extrusion": {"fill-extrusion-opacity":{"type":"number","default":1,"minimum":0,"maximum":1,"transition":true,"expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"},"fill-extrusion-color":{"type":"color","default":"#000000","transition":true,"requires":[{"!":"fill-extrusion-pattern"}],"expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"fill-extrusion-translate":{"type":"array","value":"number","length":2,"default":[0,0],"transition":true,"units":"pixels","expression":{"interpolated":true,"parameters":["zoom"]},"property-type":"data-constant"},"fill-extrusion-translate-anchor":{"type":"enum","values":{"map":{},"viewport":{}},"default":"map","requires":["fill-extrusion-translate"],"expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"},"fill-extrusion-pattern":{"type":"string","transition":true,"expression":{"interpolated":false,"parameters":["zoom","feature"]},"property-type":"cross-faded-data-driven"},"fill-extrusion-height":{"type":"number","default":0,"minimum":0,"units":"meters","transition":true,"expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"fill-extrusion-base":{"type":"number","default":0,"minimum":0,"units":"meters","transition":true,"requires":["fill-extrusion-height"],"expression":{"interpolated":true,"parameters":["zoom","feature","feature-state"]},"property-type":"data-driven"},"fill-extrusion-vertical-gradient":{"type":"boolean","default":true,"transition":false,"expression":{"interpolated":false,"parameters":["zoom"]},"property-type":"data-constant"}},
-	"property-type": {"data-driven":{"type":"property-type"},"cross-faded":{"type":"property-type"},"cross-faded-data-driven":{"type":"property-type"},"color-ramp":{"type":"property-type"},"data-constant":{"type":"property-type"},"constant":{"type":"property-type"}}
+	"property-type": {
+	"data-driven": {
+		type: "property-type"
+	},
+	"cross-faded": {
+		type: "property-type"
+	},
+	"cross-faded-data-driven": {
+		type: "property-type"
+	},
+	"color-ramp": {
+		type: "property-type"
+	},
+	"data-constant": {
+		type: "property-type"
+	},
+	constant: {
+		type: "property-type"
+	}
+}
 };
 
 var ValidationError = function ValidationError(key, value, message, identifier) {
@@ -1259,7 +4262,7 @@ function deepUnbundle(value) {
     return unbundle(value);
 }
 
-var ParsingError = (function (Error) {
+var ParsingError = /*@__PURE__*/(function (Error) {
     function ParsingError(key, message) {
         Error.call(this, message);
         this.message = message;
@@ -1274,7 +4277,6 @@ var ParsingError = (function (Error) {
 }(Error));
 
 var Scope = function Scope(parent, bindings) {
-    var this$1 = this;
     if ( bindings === void 0 ) bindings = [];
 
     this.parent = parent;
@@ -1284,7 +4286,7 @@ var Scope = function Scope(parent, bindings) {
         var name = ref[0];
         var expression = ref[1];
 
-        this$1.bindings[name] = expression;
+        this.bindings[name] = expression;
     }
 };
 Scope.prototype.concat = function concat (bindings) {
@@ -2454,10 +5456,8 @@ Formatted.prototype.toString = function toString () {
     return this.sections.map(function (section) { return section.text; }).join('');
 };
 Formatted.prototype.serialize = function serialize () {
-        var this$1 = this;
-
     var serialized = ['format'];
-    for (var i = 0, list = this$1.sections; i < list.length; i += 1) {
+    for (var i = 0, list = this.sections; i < list.length; i += 1) {
         var section = list[i];
 
             serialized.push(section.text);
@@ -2681,15 +5681,13 @@ Assertion.parse = function parse (args, context) {
     return new Assertion(type, parsed);
 };
 Assertion.prototype.evaluate = function evaluate (ctx) {
-        var this$1 = this;
-
     for (var i = 0; i < this.args.length; i++) {
-        var value = this$1.args[i].evaluate(ctx);
-        var error = checkSubtype(this$1.type, typeOf(value));
+        var value = this.args[i].evaluate(ctx);
+        var error = checkSubtype(this.type, typeOf(value));
         if (!error) {
             return value;
-        } else if (i === this$1.args.length - 1) {
-            throw new RuntimeError(("Expected value to be of type " + (toString(this$1.type)) + ", but found " + (toString(typeOf(value))) + " instead."));
+        } else if (i === this.args.length - 1) {
+            throw new RuntimeError(("Expected value to be of type " + (toString(this.type)) + ", but found " + (toString(typeOf(value))) + " instead."));
         }
     }
     return null;
@@ -2698,8 +5696,9 @@ Assertion.prototype.eachChild = function eachChild (fn) {
     this.args.forEach(fn);
 };
 Assertion.prototype.possibleOutputs = function possibleOutputs () {
-    return (ref = []).concat.apply(ref, this.args.map(function (arg) { return arg.possibleOutputs(); }));
         var ref;
+
+    return (ref = []).concat.apply(ref, this.args.map(function (arg) { return arg.possibleOutputs(); }));
 };
 Assertion.prototype.serialize = function serialize () {
     var type = this.type;
@@ -2763,9 +5762,7 @@ FormatExpression.prototype.evaluate = function evaluate (ctx) {
     return new Formatted(this.sections.map(function (section) { return new FormattedSection(toString$1(section.text.evaluate(ctx)), section.scale ? section.scale.evaluate(ctx) : null, section.font ? section.font.evaluate(ctx).join(',') : null); }));
 };
 FormatExpression.prototype.eachChild = function eachChild (fn) {
-        var this$1 = this;
-
-    for (var i = 0, list = this$1.sections; i < list.length; i += 1) {
+    for (var i = 0, list = this.sections; i < list.length; i += 1) {
         var section = list[i];
 
             fn(section.text);
@@ -2781,10 +5778,8 @@ FormatExpression.prototype.possibleOutputs = function possibleOutputs () {
     return [undefined];
 };
 FormatExpression.prototype.serialize = function serialize () {
-        var this$1 = this;
-
     var serialized = ['format'];
-    for (var i = 0, list = this$1.sections; i < list.length; i += 1) {
+    for (var i = 0, list = this.sections; i < list.length; i += 1) {
         var section = list[i];
 
             serialized.push(section.text.serialize());
@@ -2827,14 +5822,12 @@ Coercion.parse = function parse (args, context) {
     return new Coercion(type, parsed);
 };
 Coercion.prototype.evaluate = function evaluate (ctx) {
-        var this$1 = this;
-
     if (this.type.kind === 'boolean') {
         return Boolean(this.args[0].evaluate(ctx));
     } else if (this.type.kind === 'color') {
         var input;
         var error;
-        for (var i = 0, list = this$1.args; i < list.length; i += 1) {
+        for (var i = 0, list = this.args; i < list.length; i += 1) {
             var arg = list[i];
 
                 input = arg.evaluate(ctx);
@@ -2859,7 +5852,7 @@ Coercion.prototype.evaluate = function evaluate (ctx) {
         throw new RuntimeError(error || ("Could not parse color from value '" + (typeof input === 'string' ? input : JSON.stringify(input)) + "'"));
     } else if (this.type.kind === 'number') {
         var value = null;
-        for (var i$1 = 0, list$1 = this$1.args; i$1 < list$1.length; i$1 += 1) {
+        for (var i$1 = 0, list$1 = this.args; i$1 < list$1.length; i$1 += 1) {
             var arg$1 = list$1[i$1];
 
                 value = arg$1.evaluate(ctx);
@@ -2881,8 +5874,9 @@ Coercion.prototype.eachChild = function eachChild (fn) {
     this.args.forEach(fn);
 };
 Coercion.prototype.possibleOutputs = function possibleOutputs () {
-    return (ref = []).concat.apply(ref, this.args.map(function (arg) { return arg.possibleOutputs(); }));
         var ref;
+
+    return (ref = []).concat.apply(ref, this.args.map(function (arg) { return arg.possibleOutputs(); }));
 };
 Coercion.prototype.serialize = function serialize () {
     if (this.type.kind === 'formatted') {
@@ -2947,6 +5941,8 @@ CompoundExpression.prototype.serialize = function serialize () {
     return [this.name].concat(this.args.map(function (arg) { return arg.serialize(); }));
 };
 CompoundExpression.parse = function parse (args, context) {
+        var ref$1;
+
     var op = args[0];
     var definition = CompoundExpression.definitions[op];
     if (!definition) {
@@ -3018,7 +6014,6 @@ CompoundExpression.parse = function parse (args, context) {
         context.error(("Expected arguments of type " + signatures + ", but found (" + (actualTypes.join(', ')) + ") instead."));
     }
     return null;
-        var ref$1;
 };
 CompoundExpression.register = function register (registry, definitions) {
     CompoundExpression.definitions = definitions;
@@ -3287,6 +6282,7 @@ function isConstant(expression) {
         'zoom',
         'heatmap-density',
         'line-progress',
+        'accumulated',
         'is-supported-script'
     ]);
 }
@@ -3315,8 +6311,6 @@ function findStopLessThanOrEqualTo(stops, input) {
 }
 
 var Step = function Step(type, input, stops) {
-    var this$1 = this;
-
     this.type = type;
     this.input = input;
     this.labels = [];
@@ -3326,8 +6320,8 @@ var Step = function Step(type, input, stops) {
         var label = ref[0];
         var expression = ref[1];
 
-        this$1.labels.push(label);
-        this$1.outputs.push(expression);
+        this.labels.push(label);
+        this.outputs.push(expression);
     }
 };
 Step.parse = function parse (args, context) {
@@ -3388,31 +6382,28 @@ Step.prototype.evaluate = function evaluate (ctx) {
     return outputs[index].evaluate(ctx);
 };
 Step.prototype.eachChild = function eachChild (fn) {
-        var this$1 = this;
-
     fn(this.input);
-    for (var i = 0, list = this$1.outputs; i < list.length; i += 1) {
+    for (var i = 0, list = this.outputs; i < list.length; i += 1) {
         var expression = list[i];
 
             fn(expression);
     }
 };
 Step.prototype.possibleOutputs = function possibleOutputs () {
-    return (ref = []).concat.apply(ref, this.outputs.map(function (output) { return output.possibleOutputs(); }));
         var ref;
+
+    return (ref = []).concat.apply(ref, this.outputs.map(function (output) { return output.possibleOutputs(); }));
 };
 Step.prototype.serialize = function serialize () {
-        var this$1 = this;
-
     var serialized = [
         'step',
         this.input.serialize()
     ];
     for (var i = 0; i < this.labels.length; i++) {
         if (i > 0) {
-            serialized.push(this$1.labels[i]);
+            serialized.push(this.labels[i]);
         }
-        serialized.push(this$1.outputs[i].serialize());
+        serialized.push(this.outputs[i].serialize());
     }
     return serialized;
 };
@@ -3524,8 +6515,6 @@ hcl: hcl
 });
 
 var Interpolate = function Interpolate(type, operator, interpolation, input, stops) {
-    var this$1 = this;
-
     this.type = type;
     this.operator = operator;
     this.interpolation = interpolation;
@@ -3537,8 +6526,8 @@ var Interpolate = function Interpolate(type, operator, interpolation, input, sto
         var label = ref[0];
         var expression = ref[1];
 
-        this$1.labels.push(label);
-        this$1.outputs.push(expression);
+        this.labels.push(label);
+        this.outputs.push(expression);
     }
 };
 Interpolate.interpolationFactor = function interpolationFactor (interpolation, input, lower, upper) {
@@ -3654,22 +6643,19 @@ Interpolate.prototype.evaluate = function evaluate (ctx) {
     }
 };
 Interpolate.prototype.eachChild = function eachChild (fn) {
-        var this$1 = this;
-
     fn(this.input);
-    for (var i = 0, list = this$1.outputs; i < list.length; i += 1) {
+    for (var i = 0, list = this.outputs; i < list.length; i += 1) {
         var expression = list[i];
 
             fn(expression);
     }
 };
 Interpolate.prototype.possibleOutputs = function possibleOutputs () {
-    return (ref = []).concat.apply(ref, this.outputs.map(function (output) { return output.possibleOutputs(); }));
         var ref;
+
+    return (ref = []).concat.apply(ref, this.outputs.map(function (output) { return output.possibleOutputs(); }));
 };
 Interpolate.prototype.serialize = function serialize () {
-        var this$1 = this;
-
     var interpolation;
     if (this.interpolation.name === 'linear') {
         interpolation = ['linear'];
@@ -3691,7 +6677,7 @@ Interpolate.prototype.serialize = function serialize () {
         this.input.serialize()
     ];
     for (var i = 0; i < this.labels.length; i++) {
-        serialized.push(this$1.labels[i], this$1.outputs[i].serialize());
+        serialized.push(this.labels[i], this.outputs[i].serialize());
     }
     return serialized;
 };
@@ -3734,10 +6720,8 @@ Coalesce.parse = function parse (args, context) {
     return needsAnnotation ? new Coalesce(ValueType, parsedArgs) : new Coalesce(outputType, parsedArgs);
 };
 Coalesce.prototype.evaluate = function evaluate (ctx) {
-        var this$1 = this;
-
     var result = null;
-    for (var i = 0, list = this$1.args; i < list.length; i += 1) {
+    for (var i = 0, list = this.args; i < list.length; i += 1) {
         var arg = list[i];
 
             result = arg.evaluate(ctx);
@@ -3750,8 +6734,9 @@ Coalesce.prototype.eachChild = function eachChild (fn) {
     this.args.forEach(fn);
 };
 Coalesce.prototype.possibleOutputs = function possibleOutputs () {
-    return (ref = []).concat.apply(ref, this.args.map(function (arg) { return arg.possibleOutputs(); }));
         var ref;
+
+    return (ref = []).concat.apply(ref, this.args.map(function (arg) { return arg.possibleOutputs(); }));
 };
 Coalesce.prototype.serialize = function serialize () {
     var serialized = ['coalesce'];
@@ -3770,9 +6755,7 @@ Let.prototype.evaluate = function evaluate (ctx) {
     return this.result.evaluate(ctx);
 };
 Let.prototype.eachChild = function eachChild (fn) {
-        var this$1 = this;
-
-    for (var i = 0, list = this$1.bindings; i < list.length; i += 1) {
+    for (var i = 0, list = this.bindings; i < list.length; i += 1) {
         var binding = list[i];
 
             fn(binding[1]);
@@ -3808,10 +6791,8 @@ Let.prototype.possibleOutputs = function possibleOutputs () {
     return this.result.possibleOutputs();
 };
 Let.prototype.serialize = function serialize () {
-        var this$1 = this;
-
     var serialized = ['let'];
-    for (var i = 0, list = this$1.bindings; i < list.length; i += 1) {
+    for (var i = 0, list = this.bindings; i < list.length; i += 1) {
         var ref = list[i];
             var name = ref[0];
             var expr = ref[1];
@@ -3943,8 +6924,9 @@ Match.prototype.eachChild = function eachChild (fn) {
     fn(this.otherwise);
 };
 Match.prototype.possibleOutputs = function possibleOutputs () {
-    return (ref = []).concat.apply(ref, this.outputs.map(function (out) { return out.possibleOutputs(); })).concat(this.otherwise.possibleOutputs());
         var ref;
+
+    return (ref = []).concat.apply(ref, this.outputs.map(function (out) { return out.possibleOutputs(); })).concat(this.otherwise.possibleOutputs());
 };
 Match.prototype.serialize = function serialize () {
         var this$1 = this;
@@ -3959,11 +6941,11 @@ Match.prototype.serialize = function serialize () {
     for (var i = 0, list = sortedLabels; i < list.length; i += 1) {
         var label = list[i];
 
-            var outputIndex = outputLookup[this$1.cases[label]];
+            var outputIndex = outputLookup[this.cases[label]];
         if (outputIndex === undefined) {
-            outputLookup[this$1.cases[label]] = groupedByOutput.length;
+            outputLookup[this.cases[label]] = groupedByOutput.length;
             groupedByOutput.push([
-                this$1.cases[label],
+                this.cases[label],
                 [label]
             ]);
         } else {
@@ -3973,7 +6955,7 @@ Match.prototype.serialize = function serialize () {
     var coerceLabel = function (label) { return this$1.inputType.kind === 'number' ? Number(label) : label; };
     for (var i$1 = 0, list$1 = groupedByOutput; i$1 < list$1.length; i$1 += 1) {
         var ref = list$1[i$1];
-            var outputIndex$1 = ref[0];
+            var outputIndex = ref[0];
             var labels = ref[1];
 
             if (labels.length === 1) {
@@ -3981,7 +6963,7 @@ Match.prototype.serialize = function serialize () {
         } else {
             serialized.push(labels.map(coerceLabel));
         }
-        serialized.push(this$1.outputs[outputIndex$1].serialize());
+        serialized.push(this.outputs[outputIndex$1].serialize());
     }
     serialized.push(this.otherwise.serialize());
     return serialized;
@@ -4021,9 +7003,7 @@ Case.parse = function parse (args, context) {
     return new Case(outputType, branches, otherwise);
 };
 Case.prototype.evaluate = function evaluate (ctx) {
-        var this$1 = this;
-
-    for (var i = 0, list = this$1.branches; i < list.length; i += 1) {
+    for (var i = 0, list = this.branches; i < list.length; i += 1) {
         var ref = list[i];
             var test = ref[0];
             var expression = ref[1];
@@ -4035,9 +7015,7 @@ Case.prototype.evaluate = function evaluate (ctx) {
     return this.otherwise.evaluate(ctx);
 };
 Case.prototype.eachChild = function eachChild (fn) {
-        var this$1 = this;
-
-    for (var i = 0, list = this$1.branches; i < list.length; i += 1) {
+    for (var i = 0, list = this.branches; i < list.length; i += 1) {
         var ref = list[i];
             var test = ref[0];
             var expression = ref[1];
@@ -4048,13 +7026,14 @@ Case.prototype.eachChild = function eachChild (fn) {
     fn(this.otherwise);
 };
 Case.prototype.possibleOutputs = function possibleOutputs () {
+        var ref;
+
     return (ref = []).concat.apply(ref, this.branches.map(function (ref) {
             var _ = ref[0];
             var out = ref[1];
 
             return out.possibleOutputs();
         })).concat(this.otherwise.possibleOutputs());
-        var ref;
 };
 Case.prototype.serialize = function serialize () {
     var serialized = ['case'];
@@ -4109,7 +7088,7 @@ function gteqCollate(ctx, a, b, c) {
 }
 function makeComparison(op, compareBasic, compareWithCollator) {
     var isOrderComparison = op !== '==' && op !== '!=';
-    return (function () {
+    return /*@__PURE__*/(function () {
         function Comparison(lhs, rhs, collator) {
             this.type = BooleanType;
             this.lhs = lhs;
@@ -4204,6 +7183,96 @@ var GreaterThan = makeComparison('>', gt, gtCollate);
 var LessThanOrEqual = makeComparison('<=', lteq, lteqCollate);
 var GreaterThanOrEqual = makeComparison('>=', gteq, gteqCollate);
 
+var NumberFormat = function NumberFormat(number, locale, currency, minFractionDigits, maxFractionDigits) {
+    this.type = StringType;
+    this.number = number;
+    this.locale = locale;
+    this.currency = currency;
+    this.minFractionDigits = minFractionDigits;
+    this.maxFractionDigits = maxFractionDigits;
+};
+NumberFormat.parse = function parse (args, context) {
+    if (args.length !== 3)
+        { return context.error("Expected two arguments."); }
+    var number = context.parse(args[1], 1, NumberType);
+    if (!number)
+        { return null; }
+    var options = args[2];
+    if (typeof options !== 'object' || Array.isArray(options))
+        { return context.error("NumberFormat options argument must be an object."); }
+    var locale = null;
+    if (options['locale']) {
+        locale = context.parse(options['locale'], 1, StringType);
+        if (!locale)
+            { return null; }
+    }
+    var currency = null;
+    if (options['currency']) {
+        currency = context.parse(options['currency'], 1, StringType);
+        if (!currency)
+            { return null; }
+    }
+    var minFractionDigits = null;
+    if (options['min-fraction-digits']) {
+        minFractionDigits = context.parse(options['min-fraction-digits'], 1, NumberType);
+        if (!minFractionDigits)
+            { return null; }
+    }
+    var maxFractionDigits = null;
+    if (options['max-fraction-digits']) {
+        maxFractionDigits = context.parse(options['max-fraction-digits'], 1, NumberType);
+        if (!maxFractionDigits)
+            { return null; }
+    }
+    return new NumberFormat(number, locale, currency, minFractionDigits, maxFractionDigits);
+};
+NumberFormat.prototype.evaluate = function evaluate (ctx) {
+    return new Intl.NumberFormat(this.locale ? this.locale.evaluate(ctx) : [], {
+        style: this.currency ? 'currency' : 'decimal',
+        currency: this.currency ? this.currency.evaluate(ctx) : undefined,
+        minimumFractionDigits: this.minFractionDigits ? this.minFractionDigits.evaluate(ctx) : undefined,
+        maximumFractionDigits: this.maxFractionDigits ? this.maxFractionDigits.evaluate(ctx) : undefined
+    }).format(this.number.evaluate(ctx));
+};
+NumberFormat.prototype.eachChild = function eachChild (fn) {
+    fn(this.number);
+    if (this.locale) {
+        fn(this.locale);
+    }
+    if (this.currency) {
+        fn(this.currency);
+    }
+    if (this.minFractionDigits) {
+        fn(this.minFractionDigits);
+    }
+    if (this.maxFractionDigits) {
+        fn(this.maxFractionDigits);
+    }
+};
+NumberFormat.prototype.possibleOutputs = function possibleOutputs () {
+    return [undefined];
+};
+NumberFormat.prototype.serialize = function serialize () {
+    var options = {};
+    if (this.locale) {
+        options['locale'] = this.locale.serialize();
+    }
+    if (this.currency) {
+        options['currency'] = this.currency.serialize();
+    }
+    if (this.minFractionDigits) {
+        options['min-fraction-digits'] = this.minFractionDigits.serialize();
+    }
+    if (this.maxFractionDigits) {
+        options['max-fraction-digits'] = this.maxFractionDigits.serialize();
+    }
+    return [
+        'number-format',
+        this.number.serialize(),
+        options
+    ];
+};
+
 var Length = function Length(input) {
     this.type = NumberType;
     this.input = input;
@@ -4264,6 +7333,7 @@ var expressions = {
     'literal': Literal,
     'match': Match,
     'number': Assertion,
+    'number-format': NumberFormat,
     'object': Assertion,
     'step': Step,
     'string': Assertion,
@@ -4445,6 +7515,11 @@ CompoundExpression.register(expressions, {
         NumberType,
         [],
         function (ctx) { return ctx.globals.lineProgress || 0; }
+    ],
+    'accumulated': [
+        ValueType,
+        [],
+        function (ctx) { return ctx.globals.accumulated === undefined ? null : ctx.globals.accumulated; }
     ],
     '+': [
         NumberType,
@@ -5264,8 +8339,8 @@ var StyleExpression = function StyleExpression(expression, propertySpec) {
     this.expression = expression;
     this._warningHistory = {};
     this._evaluator = new EvaluationContext();
-    this._defaultValue = getDefaultValue(propertySpec);
-    this._enumValues = propertySpec.type === 'enum' ? propertySpec.values : null;
+    this._defaultValue = propertySpec ? getDefaultValue(propertySpec) : null;
+    this._enumValues = propertySpec && propertySpec.type === 'enum' ? propertySpec.values : null;
 };
 StyleExpression.prototype.evaluateWithoutErrorHandling = function evaluateWithoutErrorHandling (globals, feature, featureState) {
     this._evaluator.globals = globals;
@@ -5300,8 +8375,8 @@ function isExpression(expression) {
     return Array.isArray(expression) && expression.length > 0 && typeof expression[0] === 'string' && expression[0] in expressions;
 }
 function createExpression(expression, propertySpec) {
-    var parser = new ParsingContext(expressions, [], getExpectedType(propertySpec));
-    var parsed = parser.parse(expression, undefined, undefined, undefined, propertySpec.type === 'string' ? { typeAnnotation: 'coerce' } : undefined);
+    var parser = new ParsingContext(expressions, [], propertySpec ? getExpectedType(propertySpec) : undefined);
+    var parsed = parser.parse(expression, undefined, undefined, undefined, propertySpec && propertySpec.type === 'string' ? { typeAnnotation: 'coerce' } : undefined);
     if (!parsed) {
         return error(parser.errors);
     }
@@ -5733,14 +8808,26 @@ function validateExpression(options) {
             return new ValidationError(("" + (options.key) + (error.key)), options.value, error.message);
         });
     }
-    if (options.expressionContext === 'property' && options.propertyKey === 'text-font' && expression.value._styleExpression.expression.possibleOutputs().indexOf(undefined) !== -1) {
+    var expressionObj = expression.value.expression || expression.value._styleExpression.expression;
+    if (options.expressionContext === 'property' && options.propertyKey === 'text-font' && expressionObj.possibleOutputs().indexOf(undefined) !== -1) {
         return [new ValidationError(options.key, options.value, ("Invalid data expression for \"" + (options.propertyKey) + "\". Output values must be contained as literals within the expression."))];
     }
-    if (options.expressionContext === 'property' && options.propertyType === 'layout' && !isStateConstant(expression.value._styleExpression.expression)) {
+    if (options.expressionContext === 'property' && options.propertyType === 'layout' && !isStateConstant(expressionObj)) {
         return [new ValidationError(options.key, options.value, '"feature-state" data expressions are not supported with layout properties.')];
     }
-    if (options.expressionContext === 'filter' && !isStateConstant(expression.value.expression)) {
+    if (options.expressionContext === 'filter' && !isStateConstant(expressionObj)) {
         return [new ValidationError(options.key, options.value, '"feature-state" data expressions are not supported with filters.')];
+    }
+    if (options.expressionContext && options.expressionContext.indexOf('cluster') === 0) {
+        if (!isGlobalPropertyConstant(expressionObj, [
+                'zoom',
+                'feature-state'
+            ])) {
+            return [new ValidationError(options.key, options.value, '"zoom" and "feature-state" expressions are not supported with cluster properties.')];
+        }
+        if (options.expressionContext === 'cluster-initial' && !isFeatureConstant(expressionObj)) {
+            return [new ValidationError(options.key, options.value, 'Feature data expressions are not supported with initial expression part of cluster properties.')];
+        }
     }
     return [];
 }
@@ -6221,18 +9308,18 @@ function validateSource(options) {
         return [new ValidationError(key, value, '"type" is required')];
     }
     var type = unbundle(value.type);
-    var errors = [];
+    var errors;
     switch (type) {
     case 'vector':
     case 'raster':
     case 'raster-dem':
-        errors = errors.concat(validateObject({
+        errors = validateObject({
             key: key,
             value: value,
             valueSpec: styleSpec[("source_" + (type.replace('-', '_')))],
             style: options.style,
             styleSpec: styleSpec
-        }));
+        });
         if ('url' in value) {
             for (var prop in value) {
                 if ([
@@ -6246,13 +9333,39 @@ function validateSource(options) {
         }
         return errors;
     case 'geojson':
-        return validateObject({
+        errors = validateObject({
             key: key,
             value: value,
             valueSpec: styleSpec.source_geojson,
             style: style,
             styleSpec: styleSpec
         });
+        if (value.cluster) {
+            for (var prop$1 in value.clusterProperties) {
+                var ref = value.clusterProperties[prop$1];
+                var operator = ref[0];
+                var mapExpr = ref[1];
+                var reduceExpr = typeof operator === 'string' ? [
+                    operator,
+                    ['accumulated'],
+                    [
+                        'get',
+                        prop$1
+                    ]
+                ] : operator;
+                errors.push.apply(errors, validateExpression({
+                    key: (key + "." + prop$1 + ".map"),
+                    value: mapExpr,
+                    expressionContext: 'cluster-map'
+                }));
+                errors.push.apply(errors, validateExpression({
+                    key: (key + "." + prop$1 + ".reduce"),
+                    value: reduceExpr,
+                    expressionContext: 'cluster-reduce'
+                }));
+            }
+        }
+        return errors;
     case 'video':
         return validateObject({
             key: key,
@@ -6270,8 +9383,7 @@ function validateSource(options) {
             styleSpec: styleSpec
         });
     case 'canvas':
-        errors.push(new ValidationError(key, null, "Please use runtime APIs to add canvas sources, rather than including them in stylesheets.", 'source.canvas'));
-        return errors;
+        return [new ValidationError(key, null, "Please use runtime APIs to add canvas sources, rather than including them in stylesheets.", 'source.canvas')];
     default:
         return validateEnum({
             key: (key + ".type"),
@@ -6397,14 +9509,14 @@ function validateGlyphsURL (options) {
     return errors;
 }
 
-function validateStyleMin(style, styleSpec$$1) {
-    styleSpec$$1 = styleSpec$$1 || styleSpec;
+function validateStyleMin(style, styleSpec) {
+    styleSpec = styleSpec || spec;
     var errors = [];
     errors = errors.concat(validate({
         key: '',
         value: style,
-        valueSpec: styleSpec$$1.$root,
-        styleSpec: styleSpec$$1,
+        valueSpec: styleSpec.$root,
+        styleSpec: styleSpec,
         style: style,
         objectElementValidators: {
             glyphs: validateGlyphsURL,
@@ -6418,7 +9530,7 @@ function validateStyleMin(style, styleSpec$$1) {
             key: 'constants',
             value: style.constants,
             style: style,
-            styleSpec: styleSpec$$1
+            styleSpec: styleSpec
         }));
     }
     return sortErrors(errors);
@@ -6512,19 +9624,19 @@ GridIndex.prototype._insertReadonly = function () {
 GridIndex.prototype._insertCell = function (x1, y1, x2, y2, cellIndex, uid) {
     this.cells[cellIndex].push(uid);
 };
-GridIndex.prototype.query = function (x1, y1, x2, y2) {
+GridIndex.prototype.query = function (x1, y1, x2, y2, intersectionTest) {
     var min = this.min;
     var max = this.max;
-    if (x1 <= min && y1 <= min && max <= x2 && max <= y2) {
+    if (x1 <= min && y1 <= min && max <= x2 && max <= y2 && !intersectionTest) {
         return Array.prototype.slice.call(this.keys);
     } else {
         var result = [];
         var seenUids = {};
-        this._forEachCell(x1, y1, x2, y2, this._queryCell, result, seenUids);
+        this._forEachCell(x1, y1, x2, y2, this._queryCell, result, seenUids, intersectionTest);
         return result;
     }
 };
-GridIndex.prototype._queryCell = function (x1, y1, x2, y2, cellIndex, result, seenUids) {
+GridIndex.prototype._queryCell = function (x1, y1, x2, y2, cellIndex, result, seenUids, intersectionTest) {
     var cell = this.cells[cellIndex];
     if (cell !== null) {
         var keys = this.keys;
@@ -6533,7 +9645,7 @@ GridIndex.prototype._queryCell = function (x1, y1, x2, y2, cellIndex, result, se
             var uid = cell[u];
             if (seenUids[uid] === undefined) {
                 var offset = uid * 4;
-                if (x1 <= bboxes[offset + 2] && y1 <= bboxes[offset + 3] && x2 >= bboxes[offset + 0] && y2 >= bboxes[offset + 1]) {
+                if (intersectionTest ? intersectionTest(bboxes[offset + 0], bboxes[offset + 1], bboxes[offset + 2], bboxes[offset + 3]) : x1 <= bboxes[offset + 2] && y1 <= bboxes[offset + 3] && x2 >= bboxes[offset + 0] && y2 >= bboxes[offset + 1]) {
                     seenUids[uid] = true;
                     result.push(keys[uid]);
                 } else {
@@ -6543,34 +9655,35 @@ GridIndex.prototype._queryCell = function (x1, y1, x2, y2, cellIndex, result, se
         }
     }
 };
-GridIndex.prototype._forEachCell = function (x1, y1, x2, y2, fn, arg1, arg2) {
-    var this$1 = this;
-
+GridIndex.prototype._forEachCell = function (x1, y1, x2, y2, fn, arg1, arg2, intersectionTest) {
     var cx1 = this._convertToCellCoord(x1);
     var cy1 = this._convertToCellCoord(y1);
     var cx2 = this._convertToCellCoord(x2);
     var cy2 = this._convertToCellCoord(y2);
     for (var x = cx1; x <= cx2; x++) {
         for (var y = cy1; y <= cy2; y++) {
-            var cellIndex = this$1.d * y + x;
-            if (fn.call(this$1, x1, y1, x2, y2, cellIndex, arg1, arg2))
+            var cellIndex = this.d * y + x;
+            if (intersectionTest && !intersectionTest(this._convertFromCellCoord(x), this._convertFromCellCoord(y), this._convertFromCellCoord(x + 1), this._convertFromCellCoord(y + 1)))
+                { continue; }
+            if (fn.call(this, x1, y1, x2, y2, cellIndex, arg1, arg2, intersectionTest))
                 { return; }
         }
     }
+};
+GridIndex.prototype._convertFromCellCoord = function (x) {
+    return (x - this.padding) / this.scale;
 };
 GridIndex.prototype._convertToCellCoord = function (x) {
     return Math.max(0, Math.min(this.d - 1, Math.floor(x * this.scale) + this.padding));
 };
 GridIndex.prototype.toArrayBuffer = function () {
-    var this$1 = this;
-
     if (this.arrayBuffer)
         { return this.arrayBuffer; }
     var cells = this.cells;
     var metadataLength = NUM_PARAMS + this.cells.length + 1 + 1;
     var totalCellLength = 0;
     for (var i = 0; i < this.cells.length; i++) {
-        totalCellLength += this$1.cells[i].length;
+        totalCellLength += this.cells[i].length;
     }
     var array = new Int32Array(metadataLength + totalCellLength + this.keys.length + this.bboxes.length);
     array[0] = this.extent;
@@ -7173,17 +10286,15 @@ Transitionable.prototype.setTransition = function setTransition (name, value) {
     this._values[name].transition = clone(value) || undefined;
 };
 Transitionable.prototype.serialize = function serialize$$1 () {
-        var this$1 = this;
-
     var result = {};
-    for (var i = 0, list = Object.keys(this$1._values); i < list.length; i += 1) {
+    for (var i = 0, list = Object.keys(this._values); i < list.length; i += 1) {
         var property = list[i];
 
-            var value = this$1.getValue(property);
+            var value = this.getValue(property);
         if (value !== undefined) {
             result[property] = value;
         }
-        var transition = this$1.getTransition(property);
+        var transition = this.getTransition(property);
         if (transition !== undefined) {
             result[(property + "-transition")] = transition;
         }
@@ -7191,24 +10302,20 @@ Transitionable.prototype.serialize = function serialize$$1 () {
     return result;
 };
 Transitionable.prototype.transitioned = function transitioned (parameters, prior) {
-        var this$1 = this;
-
     var result = new Transitioning(this._properties);
-    for (var i = 0, list = Object.keys(this$1._values); i < list.length; i += 1) {
+    for (var i = 0, list = Object.keys(this._values); i < list.length; i += 1) {
         var property = list[i];
 
-            result._values[property] = this$1._values[property].transitioned(parameters, prior._values[property]);
+            result._values[property] = this._values[property].transitioned(parameters, prior._values[property]);
     }
     return result;
 };
 Transitionable.prototype.untransitioned = function untransitioned () {
-        var this$1 = this;
-
     var result = new Transitioning(this._properties);
-    for (var i = 0, list = Object.keys(this$1._values); i < list.length; i += 1) {
+    for (var i = 0, list = Object.keys(this._values); i < list.length; i += 1) {
         var property = list[i];
 
-            result._values[property] = this$1._values[property].untransitioned();
+            result._values[property] = this._values[property].untransitioned();
     }
     return result;
 };
@@ -7245,23 +10352,19 @@ var Transitioning = function Transitioning(properties) {
     this._values = Object.create(properties.defaultTransitioningPropertyValues);
 };
 Transitioning.prototype.possiblyEvaluate = function possiblyEvaluate (parameters) {
-        var this$1 = this;
-
     var result = new PossiblyEvaluated(this._properties);
-    for (var i = 0, list = Object.keys(this$1._values); i < list.length; i += 1) {
+    for (var i = 0, list = Object.keys(this._values); i < list.length; i += 1) {
         var property = list[i];
 
-            result._values[property] = this$1._values[property].possiblyEvaluate(parameters);
+            result._values[property] = this._values[property].possiblyEvaluate(parameters);
     }
     return result;
 };
 Transitioning.prototype.hasTransition = function hasTransition () {
-        var this$1 = this;
-
-    for (var i = 0, list = Object.keys(this$1._values); i < list.length; i += 1) {
+    for (var i = 0, list = Object.keys(this._values); i < list.length; i += 1) {
         var property = list[i];
 
-            if (this$1._values[property].prior) {
+            if (this._values[property].prior) {
             return true;
         }
     }
@@ -7278,13 +10381,11 @@ Layout.prototype.setValue = function setValue (name, value) {
     this._values[name] = new PropertyValue(this._values[name].property, value === null ? undefined : clone(value));
 };
 Layout.prototype.serialize = function serialize$$1 () {
-        var this$1 = this;
-
     var result = {};
-    for (var i = 0, list = Object.keys(this$1._values); i < list.length; i += 1) {
+    for (var i = 0, list = Object.keys(this._values); i < list.length; i += 1) {
         var property = list[i];
 
-            var value = this$1.getValue(property);
+            var value = this.getValue(property);
         if (value !== undefined) {
             result[property] = value;
         }
@@ -7292,13 +10393,11 @@ Layout.prototype.serialize = function serialize$$1 () {
     return result;
 };
 Layout.prototype.possiblyEvaluate = function possiblyEvaluate (parameters) {
-        var this$1 = this;
-
     var result = new PossiblyEvaluated(this._properties);
-    for (var i = 0, list = Object.keys(this$1._values); i < list.length; i += 1) {
+    for (var i = 0, list = Object.keys(this._values); i < list.length; i += 1) {
         var property = list[i];
 
-            result._values[property] = this$1._values[property].possiblyEvaluate(parameters);
+            result._values[property] = this._values[property].possiblyEvaluate(parameters);
     }
     return result;
 };
@@ -7381,7 +10480,7 @@ DataDrivenProperty.prototype.evaluate = function evaluate (value, parameters, fe
         return value.evaluate(parameters, feature, featureState);
     }
 };
-var CrossFadedDataDrivenProperty = (function (DataDrivenProperty) {
+var CrossFadedDataDrivenProperty = /*@__PURE__*/(function (DataDrivenProperty) {
     function CrossFadedDataDrivenProperty () {
         DataDrivenProperty.apply(this, arguments);
     }
@@ -7475,8 +10574,6 @@ ColorRampProperty.prototype.interpolate = function interpolate () {
     return false;
 };
 var Properties = function Properties(properties) {
-    var this$1 = this;
-
     this.properties = properties;
     this.defaultPropertyValues = {};
     this.defaultTransitionablePropertyValues = {};
@@ -7484,10 +10581,10 @@ var Properties = function Properties(properties) {
     this.defaultPossiblyEvaluatedValues = {};
     for (var property in properties) {
         var prop = properties[property];
-        var defaultPropertyValue = this$1.defaultPropertyValues[property] = new PropertyValue(prop, undefined);
-        var defaultTransitionablePropertyValue = this$1.defaultTransitionablePropertyValues[property] = new TransitionablePropertyValue(prop);
-        this$1.defaultTransitioningPropertyValues[property] = defaultTransitionablePropertyValue.untransitioned();
-        this$1.defaultPossiblyEvaluatedValues[property] = defaultPropertyValue.possiblyEvaluate({});
+        var defaultPropertyValue = this.defaultPropertyValues[property] = new PropertyValue(prop, undefined);
+        var defaultTransitionablePropertyValue = this.defaultTransitionablePropertyValues[property] = new TransitionablePropertyValue(prop);
+        this.defaultTransitioningPropertyValues[property] = defaultTransitionablePropertyValue.untransitioned();
+        this.defaultPossiblyEvaluatedValues[property] = defaultPropertyValue.possiblyEvaluate({});
     }
 };
 register('DataDrivenProperty', DataDrivenProperty);
@@ -7497,10 +10594,8 @@ register('CrossFadedProperty', CrossFadedProperty);
 register('ColorRampProperty', ColorRampProperty);
 
 var TRANSITION_SUFFIX = '-transition';
-var StyleLayer = (function (Evented$$1) {
+var StyleLayer = /*@__PURE__*/(function (Evented$$1) {
     function StyleLayer(layer, properties) {
-        var this$1 = this;
-
         Evented$$1.call(this);
         this.id = layer.id;
         this.type = layer.type;
@@ -7523,10 +10618,10 @@ var StyleLayer = (function (Evented$$1) {
         if (properties.paint) {
             this._transitionablePaint = new Transitionable(properties.paint);
             for (var property in layer.paint) {
-                this$1.setPaintProperty(property, layer.paint[property], { validate: false });
+                this.setPaintProperty(property, layer.paint[property], { validate: false });
             }
             for (var property$1 in layer.layout) {
-                this$1.setLayoutProperty(property$1, layer.layout[property$1], { validate: false });
+                this.setLayoutProperty(property$1, layer.layout[property$1], { validate: false });
             }
             this._transitioningPaint = this._transitionablePaint.untransitioned();
         }
@@ -7644,7 +10739,7 @@ var StyleLayer = (function (Evented$$1) {
             layerType: this.type,
             objectKey: name,
             value: value,
-            styleSpec: styleSpec,
+            styleSpec: spec,
             style: {
                 glyphs: true,
                 sprite: true
@@ -7657,10 +10752,8 @@ var StyleLayer = (function (Evented$$1) {
     StyleLayer.prototype.resize = function resize () {
     };
     StyleLayer.prototype.isStateDependent = function isStateDependent () {
-        var this$1 = this;
-
-        for (var property in this$1.paint._values) {
-            var value = this$1.paint.get(property);
+        for (var property in this.paint._values) {
+            var value = this.paint.get(property);
             if (!(value instanceof PossiblyEvaluatedPropertyValue) || !supportsPropertyExpression(value.property.specification)) {
                 continue;
             }
@@ -7775,7 +10868,7 @@ function align(offset, size) {
     return Math.ceil(offset / size) * size;
 }
 
-var StructArrayLayout2i4 = (function (StructArray$$1) {
+var StructArrayLayout2i4 = /*@__PURE__*/(function (StructArray$$1) {
     function StructArrayLayout2i4 () {
         StructArray$$1.apply(this, arguments);
     }
@@ -7804,7 +10897,7 @@ var StructArrayLayout2i4 = (function (StructArray$$1) {
 }(StructArray));
 StructArrayLayout2i4.prototype.bytesPerElement = 4;
 register('StructArrayLayout2i4', StructArrayLayout2i4);
-var StructArrayLayout4i8 = (function (StructArray$$1) {
+var StructArrayLayout4i8 = /*@__PURE__*/(function (StructArray$$1) {
     function StructArrayLayout4i8 () {
         StructArray$$1.apply(this, arguments);
     }
@@ -7835,7 +10928,7 @@ var StructArrayLayout4i8 = (function (StructArray$$1) {
 }(StructArray));
 StructArrayLayout4i8.prototype.bytesPerElement = 8;
 register('StructArrayLayout4i8', StructArrayLayout4i8);
-var StructArrayLayout2i4i12 = (function (StructArray$$1) {
+var StructArrayLayout2i4i12 = /*@__PURE__*/(function (StructArray$$1) {
     function StructArrayLayout2i4i12 () {
         StructArray$$1.apply(this, arguments);
     }
@@ -7868,7 +10961,7 @@ var StructArrayLayout2i4i12 = (function (StructArray$$1) {
 }(StructArray));
 StructArrayLayout2i4i12.prototype.bytesPerElement = 12;
 register('StructArrayLayout2i4i12', StructArrayLayout2i4i12);
-var StructArrayLayout4i4ub12 = (function (StructArray$$1) {
+var StructArrayLayout4i4ub12 = /*@__PURE__*/(function (StructArray$$1) {
     function StructArrayLayout4i4ub12 () {
         StructArray$$1.apply(this, arguments);
     }
@@ -7904,7 +10997,7 @@ var StructArrayLayout4i4ub12 = (function (StructArray$$1) {
 }(StructArray));
 StructArrayLayout4i4ub12.prototype.bytesPerElement = 12;
 register('StructArrayLayout4i4ub12', StructArrayLayout4i4ub12);
-var StructArrayLayout8ui16 = (function (StructArray$$1) {
+var StructArrayLayout8ui16 = /*@__PURE__*/(function (StructArray$$1) {
     function StructArrayLayout8ui16 () {
         StructArray$$1.apply(this, arguments);
     }
@@ -7939,7 +11032,7 @@ var StructArrayLayout8ui16 = (function (StructArray$$1) {
 }(StructArray));
 StructArrayLayout8ui16.prototype.bytesPerElement = 16;
 register('StructArrayLayout8ui16', StructArrayLayout8ui16);
-var StructArrayLayout4i4ui16 = (function (StructArray$$1) {
+var StructArrayLayout4i4ui16 = /*@__PURE__*/(function (StructArray$$1) {
     function StructArrayLayout4i4ui16 () {
         StructArray$$1.apply(this, arguments);
     }
@@ -7975,7 +11068,7 @@ var StructArrayLayout4i4ui16 = (function (StructArray$$1) {
 }(StructArray));
 StructArrayLayout4i4ui16.prototype.bytesPerElement = 16;
 register('StructArrayLayout4i4ui16', StructArrayLayout4i4ui16);
-var StructArrayLayout3f12 = (function (StructArray$$1) {
+var StructArrayLayout3f12 = /*@__PURE__*/(function (StructArray$$1) {
     function StructArrayLayout3f12 () {
         StructArray$$1.apply(this, arguments);
     }
@@ -8005,7 +11098,7 @@ var StructArrayLayout3f12 = (function (StructArray$$1) {
 }(StructArray));
 StructArrayLayout3f12.prototype.bytesPerElement = 12;
 register('StructArrayLayout3f12', StructArrayLayout3f12);
-var StructArrayLayout1ul4 = (function (StructArray$$1) {
+var StructArrayLayout1ul4 = /*@__PURE__*/(function (StructArray$$1) {
     function StructArrayLayout1ul4 () {
         StructArray$$1.apply(this, arguments);
     }
@@ -8033,7 +11126,7 @@ var StructArrayLayout1ul4 = (function (StructArray$$1) {
 }(StructArray));
 StructArrayLayout1ul4.prototype.bytesPerElement = 4;
 register('StructArrayLayout1ul4', StructArrayLayout1ul4);
-var StructArrayLayout6i1ul2ui2i24 = (function (StructArray$$1) {
+var StructArrayLayout6i1ul2ui2i24 = /*@__PURE__*/(function (StructArray$$1) {
     function StructArrayLayout6i1ul2ui2i24 () {
         StructArray$$1.apply(this, arguments);
     }
@@ -8074,7 +11167,7 @@ var StructArrayLayout6i1ul2ui2i24 = (function (StructArray$$1) {
 }(StructArray));
 StructArrayLayout6i1ul2ui2i24.prototype.bytesPerElement = 24;
 register('StructArrayLayout6i1ul2ui2i24', StructArrayLayout6i1ul2ui2i24);
-var StructArrayLayout2i2i2i12 = (function (StructArray$$1) {
+var StructArrayLayout2i2i2i12 = /*@__PURE__*/(function (StructArray$$1) {
     function StructArrayLayout2i2i2i12 () {
         StructArray$$1.apply(this, arguments);
     }
@@ -8107,7 +11200,7 @@ var StructArrayLayout2i2i2i12 = (function (StructArray$$1) {
 }(StructArray));
 StructArrayLayout2i2i2i12.prototype.bytesPerElement = 12;
 register('StructArrayLayout2i2i2i12', StructArrayLayout2i2i2i12);
-var StructArrayLayout2ub4 = (function (StructArray$$1) {
+var StructArrayLayout2ub4 = /*@__PURE__*/(function (StructArray$$1) {
     function StructArrayLayout2ub4 () {
         StructArray$$1.apply(this, arguments);
     }
@@ -8135,7 +11228,7 @@ var StructArrayLayout2ub4 = (function (StructArray$$1) {
 }(StructArray));
 StructArrayLayout2ub4.prototype.bytesPerElement = 4;
 register('StructArrayLayout2ub4', StructArrayLayout2ub4);
-var StructArrayLayout2i2ui3ul3ui2f2ub40 = (function (StructArray$$1) {
+var StructArrayLayout2i2ui3ul3ui2f2ub40 = /*@__PURE__*/(function (StructArray$$1) {
     function StructArrayLayout2i2ui3ul3ui2f2ub40 () {
         StructArray$$1.apply(this, arguments);
     }
@@ -8181,7 +11274,7 @@ var StructArrayLayout2i2ui3ul3ui2f2ub40 = (function (StructArray$$1) {
 }(StructArray));
 StructArrayLayout2i2ui3ul3ui2f2ub40.prototype.bytesPerElement = 40;
 register('StructArrayLayout2i2ui3ul3ui2f2ub40', StructArrayLayout2i2ui3ul3ui2f2ub40);
-var StructArrayLayout4i9ui1ul32 = (function (StructArray$$1) {
+var StructArrayLayout4i9ui1ul32 = /*@__PURE__*/(function (StructArray$$1) {
     function StructArrayLayout4i9ui1ul32 () {
         StructArray$$1.apply(this, arguments);
     }
@@ -8225,7 +11318,7 @@ var StructArrayLayout4i9ui1ul32 = (function (StructArray$$1) {
 }(StructArray));
 StructArrayLayout4i9ui1ul32.prototype.bytesPerElement = 32;
 register('StructArrayLayout4i9ui1ul32', StructArrayLayout4i9ui1ul32);
-var StructArrayLayout1f4 = (function (StructArray$$1) {
+var StructArrayLayout1f4 = /*@__PURE__*/(function (StructArray$$1) {
     function StructArrayLayout1f4 () {
         StructArray$$1.apply(this, arguments);
     }
@@ -8253,7 +11346,7 @@ var StructArrayLayout1f4 = (function (StructArray$$1) {
 }(StructArray));
 StructArrayLayout1f4.prototype.bytesPerElement = 4;
 register('StructArrayLayout1f4', StructArrayLayout1f4);
-var StructArrayLayout3i6 = (function (StructArray$$1) {
+var StructArrayLayout3i6 = /*@__PURE__*/(function (StructArray$$1) {
     function StructArrayLayout3i6 () {
         StructArray$$1.apply(this, arguments);
     }
@@ -8283,7 +11376,7 @@ var StructArrayLayout3i6 = (function (StructArray$$1) {
 }(StructArray));
 StructArrayLayout3i6.prototype.bytesPerElement = 6;
 register('StructArrayLayout3i6', StructArrayLayout3i6);
-var StructArrayLayout1ul2ui8 = (function (StructArray$$1) {
+var StructArrayLayout1ul2ui8 = /*@__PURE__*/(function (StructArray$$1) {
     function StructArrayLayout1ul2ui8 () {
         StructArray$$1.apply(this, arguments);
     }
@@ -8315,7 +11408,7 @@ var StructArrayLayout1ul2ui8 = (function (StructArray$$1) {
 }(StructArray));
 StructArrayLayout1ul2ui8.prototype.bytesPerElement = 8;
 register('StructArrayLayout1ul2ui8', StructArrayLayout1ul2ui8);
-var StructArrayLayout3ui6 = (function (StructArray$$1) {
+var StructArrayLayout3ui6 = /*@__PURE__*/(function (StructArray$$1) {
     function StructArrayLayout3ui6 () {
         StructArray$$1.apply(this, arguments);
     }
@@ -8345,7 +11438,7 @@ var StructArrayLayout3ui6 = (function (StructArray$$1) {
 }(StructArray));
 StructArrayLayout3ui6.prototype.bytesPerElement = 6;
 register('StructArrayLayout3ui6', StructArrayLayout3ui6);
-var StructArrayLayout2ui4 = (function (StructArray$$1) {
+var StructArrayLayout2ui4 = /*@__PURE__*/(function (StructArray$$1) {
     function StructArrayLayout2ui4 () {
         StructArray$$1.apply(this, arguments);
     }
@@ -8374,7 +11467,7 @@ var StructArrayLayout2ui4 = (function (StructArray$$1) {
 }(StructArray));
 StructArrayLayout2ui4.prototype.bytesPerElement = 4;
 register('StructArrayLayout2ui4', StructArrayLayout2ui4);
-var StructArrayLayout1ui2 = (function (StructArray$$1) {
+var StructArrayLayout1ui2 = /*@__PURE__*/(function (StructArray$$1) {
     function StructArrayLayout1ui2 () {
         StructArray$$1.apply(this, arguments);
     }
@@ -8402,7 +11495,7 @@ var StructArrayLayout1ui2 = (function (StructArray$$1) {
 }(StructArray));
 StructArrayLayout1ui2.prototype.bytesPerElement = 2;
 register('StructArrayLayout1ui2', StructArrayLayout1ui2);
-var StructArrayLayout2f8 = (function (StructArray$$1) {
+var StructArrayLayout2f8 = /*@__PURE__*/(function (StructArray$$1) {
     function StructArrayLayout2f8 () {
         StructArray$$1.apply(this, arguments);
     }
@@ -8431,7 +11524,7 @@ var StructArrayLayout2f8 = (function (StructArray$$1) {
 }(StructArray));
 StructArrayLayout2f8.prototype.bytesPerElement = 8;
 register('StructArrayLayout2f8', StructArrayLayout2f8);
-var StructArrayLayout4f16 = (function (StructArray$$1) {
+var StructArrayLayout4f16 = /*@__PURE__*/(function (StructArray$$1) {
     function StructArrayLayout4f16 () {
         StructArray$$1.apply(this, arguments);
     }
@@ -8462,7 +11555,7 @@ var StructArrayLayout4f16 = (function (StructArray$$1) {
 }(StructArray));
 StructArrayLayout4f16.prototype.bytesPerElement = 16;
 register('StructArrayLayout4f16', StructArrayLayout4f16);
-var CollisionBoxStruct = (function (Struct$$1) {
+var CollisionBoxStruct = /*@__PURE__*/(function (Struct$$1) {
     function CollisionBoxStruct () {
         Struct$$1.apply(this, arguments);
     }
@@ -8548,7 +11641,7 @@ var CollisionBoxStruct = (function (Struct$$1) {
     return CollisionBoxStruct;
 }(Struct));
 CollisionBoxStruct.prototype.size = 24;
-var CollisionBoxArray = (function (StructArrayLayout6i1ul2ui2i24) {
+var CollisionBoxArray = /*@__PURE__*/(function (StructArrayLayout6i1ul2ui2i24) {
     function CollisionBoxArray () {
         StructArrayLayout6i1ul2ui2i24.apply(this, arguments);
     }
@@ -8564,7 +11657,7 @@ var CollisionBoxArray = (function (StructArrayLayout6i1ul2ui2i24) {
     return CollisionBoxArray;
 }(StructArrayLayout6i1ul2ui2i24));
 register('CollisionBoxArray', CollisionBoxArray);
-var PlacedSymbolStruct = (function (Struct$$1) {
+var PlacedSymbolStruct = /*@__PURE__*/(function (Struct$$1) {
     function PlacedSymbolStruct () {
         Struct$$1.apply(this, arguments);
     }
@@ -8665,7 +11758,7 @@ var PlacedSymbolStruct = (function (Struct$$1) {
     return PlacedSymbolStruct;
 }(Struct));
 PlacedSymbolStruct.prototype.size = 40;
-var PlacedSymbolArray = (function (StructArrayLayout2i2ui3ul3ui2f2ub40) {
+var PlacedSymbolArray = /*@__PURE__*/(function (StructArrayLayout2i2ui3ul3ui2f2ub40) {
     function PlacedSymbolArray () {
         StructArrayLayout2i2ui3ul3ui2f2ub40.apply(this, arguments);
     }
@@ -8681,7 +11774,7 @@ var PlacedSymbolArray = (function (StructArrayLayout2i2ui3ul3ui2f2ub40) {
     return PlacedSymbolArray;
 }(StructArrayLayout2i2ui3ul3ui2f2ub40));
 register('PlacedSymbolArray', PlacedSymbolArray);
-var SymbolInstanceStruct = (function (Struct$$1) {
+var SymbolInstanceStruct = /*@__PURE__*/(function (Struct$$1) {
     function SymbolInstanceStruct () {
         Struct$$1.apply(this, arguments);
     }
@@ -8782,7 +11875,7 @@ var SymbolInstanceStruct = (function (Struct$$1) {
     return SymbolInstanceStruct;
 }(Struct));
 SymbolInstanceStruct.prototype.size = 32;
-var SymbolInstanceArray = (function (StructArrayLayout4i9ui1ul32) {
+var SymbolInstanceArray = /*@__PURE__*/(function (StructArrayLayout4i9ui1ul32) {
     function SymbolInstanceArray () {
         StructArrayLayout4i9ui1ul32.apply(this, arguments);
     }
@@ -8798,7 +11891,7 @@ var SymbolInstanceArray = (function (StructArrayLayout4i9ui1ul32) {
     return SymbolInstanceArray;
 }(StructArrayLayout4i9ui1ul32));
 register('SymbolInstanceArray', SymbolInstanceArray);
-var GlyphOffsetStruct = (function (Struct$$1) {
+var GlyphOffsetStruct = /*@__PURE__*/(function (Struct$$1) {
     function GlyphOffsetStruct () {
         Struct$$1.apply(this, arguments);
     }
@@ -8821,7 +11914,7 @@ var GlyphOffsetStruct = (function (Struct$$1) {
     return GlyphOffsetStruct;
 }(Struct));
 GlyphOffsetStruct.prototype.size = 4;
-var GlyphOffsetArray = (function (StructArrayLayout1f4) {
+var GlyphOffsetArray = /*@__PURE__*/(function (StructArrayLayout1f4) {
     function GlyphOffsetArray () {
         StructArrayLayout1f4.apply(this, arguments);
     }
@@ -8840,7 +11933,7 @@ var GlyphOffsetArray = (function (StructArrayLayout1f4) {
     return GlyphOffsetArray;
 }(StructArrayLayout1f4));
 register('GlyphOffsetArray', GlyphOffsetArray);
-var SymbolLineVertexStruct = (function (Struct$$1) {
+var SymbolLineVertexStruct = /*@__PURE__*/(function (Struct$$1) {
     function SymbolLineVertexStruct () {
         Struct$$1.apply(this, arguments);
     }
@@ -8875,7 +11968,7 @@ var SymbolLineVertexStruct = (function (Struct$$1) {
     return SymbolLineVertexStruct;
 }(Struct));
 SymbolLineVertexStruct.prototype.size = 6;
-var SymbolLineVertexArray = (function (StructArrayLayout3i6) {
+var SymbolLineVertexArray = /*@__PURE__*/(function (StructArrayLayout3i6) {
     function SymbolLineVertexArray () {
         StructArrayLayout3i6.apply(this, arguments);
     }
@@ -8900,7 +11993,7 @@ var SymbolLineVertexArray = (function (StructArrayLayout3i6) {
     return SymbolLineVertexArray;
 }(StructArrayLayout3i6));
 register('SymbolLineVertexArray', SymbolLineVertexArray);
-var FeatureIndexStruct = (function (Struct$$1) {
+var FeatureIndexStruct = /*@__PURE__*/(function (Struct$$1) {
     function FeatureIndexStruct () {
         Struct$$1.apply(this, arguments);
     }
@@ -8935,7 +12028,7 @@ var FeatureIndexStruct = (function (Struct$$1) {
     return FeatureIndexStruct;
 }(Struct));
 FeatureIndexStruct.prototype.size = 8;
-var FeatureIndexArray = (function (StructArrayLayout1ul2ui8) {
+var FeatureIndexArray = /*@__PURE__*/(function (StructArrayLayout1ul2ui8) {
     function FeatureIndexArray () {
         StructArrayLayout1ul2ui8.apply(this, arguments);
     }
@@ -8966,17 +12059,19 @@ var SegmentVector = function SegmentVector(segments) {
 
     this.segments = segments;
 };
-SegmentVector.prototype.prepareSegment = function prepareSegment (numVertices, layoutVertexArray, indexArray) {
+SegmentVector.prototype.prepareSegment = function prepareSegment (numVertices, layoutVertexArray, indexArray, sortKey) {
     var segment = this.segments[this.segments.length - 1];
     if (numVertices > SegmentVector.MAX_VERTEX_ARRAY_LENGTH)
         { warnOnce(("Max vertices per segment is " + (SegmentVector.MAX_VERTEX_ARRAY_LENGTH) + ": bucket requested " + numVertices)); }
-    if (!segment || segment.vertexLength + numVertices > SegmentVector.MAX_VERTEX_ARRAY_LENGTH) {
+    if (!segment || segment.vertexLength + numVertices > SegmentVector.MAX_VERTEX_ARRAY_LENGTH || segment.sortKey !== sortKey) {
         segment = {
             vertexOffset: layoutVertexArray.length,
             primitiveOffset: indexArray.length,
             vertexLength: 0,
             primitiveLength: 0
         };
+        if (sortKey !== undefined)
+            { segment.sortKey = sortKey; }
         this.segments.push(segment);
     }
     return segment;
@@ -8985,9 +12080,7 @@ SegmentVector.prototype.get = function get () {
     return this.segments;
 };
 SegmentVector.prototype.destroy = function destroy () {
-        var this$1 = this;
-
-    for (var i = 0, list = this$1.segments; i < list.length; i += 1) {
+    for (var i = 0, list = this.segments; i < list.length; i += 1) {
         var segment = list[i];
 
             for (var k in segment.vaos) {
@@ -9001,7 +12094,8 @@ SegmentVector.simpleSegment = function simpleSegment (vertexOffset, primitiveOff
             primitiveOffset: primitiveOffset,
             vertexLength: vertexLength,
             primitiveLength: primitiveLength,
-            vaos: {}
+            vaos: {},
+            sortKey: 0
         }]);
 };
 SegmentVector.MAX_VERTEX_ARRAY_LENGTH = Math.pow(2, 16) - 1;
@@ -9023,13 +12117,11 @@ FeaturePositionMap.prototype.add = function add (id, index, start, end) {
     this.positions.push(index, start, end);
 };
 FeaturePositionMap.prototype.getPositions = function getPositions (id) {
-        var this$1 = this;
-
     var i = 0;
     var j = this.ids.length - 1;
     while (i < j) {
         var m = i + j >> 1;
-        if (this$1.ids[m] >= id) {
+        if (this.ids[m] >= id) {
             j = m;
         } else {
             i = m + 1;
@@ -9037,9 +12129,9 @@ FeaturePositionMap.prototype.getPositions = function getPositions (id) {
     }
     var positions = [];
     while (this.ids[i] === id) {
-        var index = this$1.positions[3 * i];
-        var start = this$1.positions[3 * i + 1];
-        var end = this$1.positions[3 * i + 2];
+        var index = this.positions[3 * i];
+        var start = this.positions[3 * i + 1];
+        var end = this.positions[3 * i + 2];
         positions.push({
             index: index,
             start: start,
@@ -9100,7 +12192,7 @@ var Uniform = function Uniform(context, location) {
     this.gl = context.gl;
     this.location = location;
 };
-var Uniform1i = (function (Uniform) {
+var Uniform1i = /*@__PURE__*/(function (Uniform) {
     function Uniform1i(context, location) {
         Uniform.call(this, context, location);
         this.current = 0;
@@ -9118,7 +12210,7 @@ var Uniform1i = (function (Uniform) {
 
     return Uniform1i;
 }(Uniform));
-var Uniform1f = (function (Uniform) {
+var Uniform1f = /*@__PURE__*/(function (Uniform) {
     function Uniform1f(context, location) {
         Uniform.call(this, context, location);
         this.current = 0;
@@ -9136,7 +12228,7 @@ var Uniform1f = (function (Uniform) {
 
     return Uniform1f;
 }(Uniform));
-var Uniform2f = (function (Uniform) {
+var Uniform2f = /*@__PURE__*/(function (Uniform) {
     function Uniform2f(context, location) {
         Uniform.call(this, context, location);
         this.current = [
@@ -9157,7 +12249,7 @@ var Uniform2f = (function (Uniform) {
 
     return Uniform2f;
 }(Uniform));
-var Uniform3f = (function (Uniform) {
+var Uniform3f = /*@__PURE__*/(function (Uniform) {
     function Uniform3f(context, location) {
         Uniform.call(this, context, location);
         this.current = [
@@ -9179,7 +12271,7 @@ var Uniform3f = (function (Uniform) {
 
     return Uniform3f;
 }(Uniform));
-var Uniform4f = (function (Uniform) {
+var Uniform4f = /*@__PURE__*/(function (Uniform) {
     function Uniform4f(context, location) {
         Uniform.call(this, context, location);
         this.current = [
@@ -9202,7 +12294,7 @@ var Uniform4f = (function (Uniform) {
 
     return Uniform4f;
 }(Uniform));
-var UniformColor = (function (Uniform) {
+var UniformColor = /*@__PURE__*/(function (Uniform) {
     function UniformColor(context, location) {
         Uniform.call(this, context, location);
         this.current = Color.transparent;
@@ -9221,7 +12313,7 @@ var UniformColor = (function (Uniform) {
     return UniformColor;
 }(Uniform));
 var emptyMat4 = new Float32Array(16);
-var UniformMatrix4f = (function (Uniform) {
+var UniformMatrix4f = /*@__PURE__*/(function (Uniform) {
     function UniformMatrix4f(context, location) {
         Uniform.call(this, context, location);
         this.current = emptyMat4;
@@ -9231,17 +12323,15 @@ var UniformMatrix4f = (function (Uniform) {
     UniformMatrix4f.prototype = Object.create( Uniform && Uniform.prototype );
     UniformMatrix4f.prototype.constructor = UniformMatrix4f;
     UniformMatrix4f.prototype.set = function set (v) {
-        var this$1 = this;
-
         if (v[12] !== this.current[12] || v[0] !== this.current[0]) {
             this.current = v;
             this.gl.uniformMatrix4fv(this.location, false, v);
             return;
         }
         for (var i = 1; i < 16; i++) {
-            if (v[i] !== this$1.current[i]) {
-                this$1.current = v;
-                this$1.gl.uniformMatrix4fv(this$1.location, false, v);
+            if (v[i] !== this.current[i]) {
+                this.current = v;
+                this.gl.uniformMatrix4fv(this.location, false, v);
                 break;
             }
         }
@@ -9625,10 +12715,8 @@ ProgramConfiguration.createDynamic = function createDynamic (layer, zoom, filter
     return self;
 };
 ProgramConfiguration.prototype.populatePaintArrays = function populatePaintArrays (newLength, feature, index, imagePositions) {
-        var this$1 = this;
-
-    for (var property in this$1.binders) {
-        var binder = this$1.binders[property];
+    for (var property in this.binders) {
+        var binder = this.binders[property];
         binder.populatePaintArray(newLength, feature, imagePositions);
     }
     if (feature.id !== undefined) {
@@ -9637,25 +12725,21 @@ ProgramConfiguration.prototype.populatePaintArrays = function populatePaintArray
     this._bufferOffset = newLength;
 };
 ProgramConfiguration.prototype.setConstantPatternPositions = function setConstantPatternPositions (posTo, posFrom) {
-        var this$1 = this;
-
-    for (var property in this$1.binders) {
-        var binder = this$1.binders[property];
+    for (var property in this.binders) {
+        var binder = this.binders[property];
         binder.setConstantPatternPositions(posTo, posFrom);
     }
 };
 ProgramConfiguration.prototype.updatePaintArrays = function updatePaintArrays (featureStates, vtLayer, layer, imagePositions) {
-        var this$1 = this;
-
     var dirty = false;
     for (var id in featureStates) {
-        var positions = this$1._featureMap.getPositions(+id);
+        var positions = this._featureMap.getPositions(+id);
         for (var i = 0, list = positions; i < list.length; i += 1) {
             var pos = list[i];
 
                 var feature = vtLayer.feature(pos.index);
-            for (var property in this$1.binders) {
-                var binder = this$1.binders[property];
+            for (var property in this.binders) {
+                var binder = this.binders[property];
                 if (binder instanceof ConstantBinder || binder instanceof CrossFadedConstantBinder)
                     { continue; }
                 if (binder.expression.isStateDependent === true) {
@@ -9670,11 +12754,9 @@ ProgramConfiguration.prototype.updatePaintArrays = function updatePaintArrays (f
     return dirty;
 };
 ProgramConfiguration.prototype.defines = function defines () {
-        var this$1 = this;
-
     var result = [];
-    for (var property in this$1.binders) {
-        result.push.apply(result, this$1.binders[property].defines());
+    for (var property in this.binders) {
+        result.push.apply(result, this.binders[property].defines());
     }
     return result;
 };
@@ -9682,11 +12764,9 @@ ProgramConfiguration.prototype.getPaintVertexBuffers = function getPaintVertexBu
     return this._buffers;
 };
 ProgramConfiguration.prototype.getUniforms = function getUniforms (context, locations) {
-        var this$1 = this;
-
     var result = {};
-    for (var property in this$1.binders) {
-        var binder = this$1.binders[property];
+    for (var property in this.binders) {
+        var binder = this.binders[property];
         for (var i = 0, list = binder.uniformNames; i < list.length; i += 1) {
             var name = list[i];
 
@@ -9696,10 +12776,8 @@ ProgramConfiguration.prototype.getUniforms = function getUniforms (context, loca
     return result;
 };
 ProgramConfiguration.prototype.setUniforms = function setUniforms (context, uniformBindings, properties, globals) {
-        var this$1 = this;
-
-    for (var property in this$1.binders) {
-        var binder = this$1.binders[property];
+    for (var property in this.binders) {
+        var binder = this.binders[property];
         for (var i = 0, list = binder.uniformNames; i < list.length; i += 1) {
             var uniformName = list[i];
 
@@ -9710,11 +12788,9 @@ ProgramConfiguration.prototype.setUniforms = function setUniforms (context, unif
     }
 };
 ProgramConfiguration.prototype.updatePatternPaintBuffers = function updatePatternPaintBuffers (crossfade) {
-        var this$1 = this;
-
     var buffers = [];
-    for (var property in this$1.binders) {
-        var binder = this$1.binders[property];
+    for (var property in this.binders) {
+        var binder = this.binders[property];
         if (binder instanceof CrossFadedCompositeBinder) {
             var patternVertexBuffer = crossfade.fromScale === 2 ? binder.zoomInPaintVertexBuffer : binder.zoomOutPaintVertexBuffer;
             if (patternVertexBuffer)
@@ -9726,14 +12802,12 @@ ProgramConfiguration.prototype.updatePatternPaintBuffers = function updatePatter
     this._buffers = buffers;
 };
 ProgramConfiguration.prototype.upload = function upload (context) {
-        var this$1 = this;
-
-    for (var property in this$1.binders) {
-        this$1.binders[property].upload(context);
+    for (var property in this.binders) {
+        this.binders[property].upload(context);
     }
     var buffers = [];
-    for (var property$1 in this$1.binders) {
-        var binder = this$1.binders[property$1];
+    for (var property$1 in this.binders) {
+        var binder = this.binders[property$1];
         if ((binder instanceof SourceExpressionBinder || binder instanceof CompositeExpressionBinder) && binder.paintVertexBuffer) {
             buffers.push(binder.paintVertexBuffer);
         }
@@ -9741,60 +12815,49 @@ ProgramConfiguration.prototype.upload = function upload (context) {
     this._buffers = buffers;
 };
 ProgramConfiguration.prototype.destroy = function destroy () {
-        var this$1 = this;
-
-    for (var property in this$1.binders) {
-        this$1.binders[property].destroy();
+    for (var property in this.binders) {
+        this.binders[property].destroy();
     }
 };
 var ProgramConfigurationSet = function ProgramConfigurationSet(layoutAttributes, layers, zoom, filterProperties) {
-    var this$1 = this;
     if ( filterProperties === void 0 ) filterProperties = function () { return true; };
 
     this.programConfigurations = {};
     for (var i = 0, list = layers; i < list.length; i += 1) {
         var layer = list[i];
 
-        this$1.programConfigurations[layer.id] = ProgramConfiguration.createDynamic(layer, zoom, filterProperties);
-        this$1.programConfigurations[layer.id].layoutAttributes = layoutAttributes;
+        this.programConfigurations[layer.id] = ProgramConfiguration.createDynamic(layer, zoom, filterProperties);
+        this.programConfigurations[layer.id].layoutAttributes = layoutAttributes;
     }
     this.needsUpload = false;
 };
 ProgramConfigurationSet.prototype.populatePaintArrays = function populatePaintArrays (length, feature, index, imagePositions) {
-        var this$1 = this;
-
-    for (var key in this$1.programConfigurations) {
-        this$1.programConfigurations[key].populatePaintArrays(length, feature, index, imagePositions);
+    for (var key in this.programConfigurations) {
+        this.programConfigurations[key].populatePaintArrays(length, feature, index, imagePositions);
     }
     this.needsUpload = true;
 };
 ProgramConfigurationSet.prototype.updatePaintArrays = function updatePaintArrays (featureStates, vtLayer, layers, imagePositions) {
-        var this$1 = this;
-
     for (var i = 0, list = layers; i < list.length; i += 1) {
         var layer = list[i];
 
-            this$1.needsUpload = this$1.programConfigurations[layer.id].updatePaintArrays(featureStates, vtLayer, layer, imagePositions) || this$1.needsUpload;
+            this.needsUpload = this.programConfigurations[layer.id].updatePaintArrays(featureStates, vtLayer, layer, imagePositions) || this.needsUpload;
     }
 };
 ProgramConfigurationSet.prototype.get = function get (layerId) {
     return this.programConfigurations[layerId];
 };
 ProgramConfigurationSet.prototype.upload = function upload (context) {
-        var this$1 = this;
-
     if (!this.needsUpload)
         { return; }
-    for (var layerId in this$1.programConfigurations) {
-        this$1.programConfigurations[layerId].upload(context);
+    for (var layerId in this.programConfigurations) {
+        this.programConfigurations[layerId].upload(context);
     }
     this.needsUpload = false;
 };
 ProgramConfigurationSet.prototype.destroy = function destroy () {
-        var this$1 = this;
-
-    for (var layerId in this$1.programConfigurations) {
-        this$1.programConfigurations[layerId].destroy();
+    for (var layerId in this.programConfigurations) {
+        this.programConfigurations[layerId].destroy();
     }
 };
 function paintAttributeNames(property, type) {
@@ -9904,20 +12967,19 @@ var CircleBucket = function CircleBucket(options) {
     this.indexArray = new StructArrayLayout3ui6();
     this.segments = new SegmentVector();
     this.programConfigurations = new ProgramConfigurationSet(members, options.layers, options.zoom);
+    this.stateDependentLayerIds = this.layers.filter(function (l) { return l.isStateDependent(); }).map(function (l) { return l.id; });
 };
 CircleBucket.prototype.populate = function populate (features, options) {
-        var this$1 = this;
-
     for (var i = 0, list = features; i < list.length; i += 1) {
         var ref = list[i];
             var feature = ref.feature;
             var index = ref.index;
             var sourceLayerIndex = ref.sourceLayerIndex;
 
-            if (this$1.layers[0]._featureFilter(new EvaluationParameters(this$1.zoom), feature)) {
+            if (this.layers[0]._featureFilter(new EvaluationParameters(this.zoom), feature)) {
             var geometry = loadGeometry(feature);
-            this$1.addFeature(feature, geometry, index);
-            options.featureIndex.insert(feature, geometry, index, sourceLayerIndex, this$1.index);
+            this.addFeature(feature, geometry, index);
+            options.featureIndex.insert(feature, geometry, index, sourceLayerIndex, this.index);
         }
     }
 };
@@ -9949,8 +13011,6 @@ CircleBucket.prototype.destroy = function destroy () {
     this.segments.destroy();
 };
 CircleBucket.prototype.addFeature = function addFeature (feature, geometry, index) {
-        var this$1 = this;
-
     for (var i$1 = 0, list$1 = geometry; i$1 < list$1.length; i$1 += 1) {
         var ring = list$1[i$1];
 
@@ -9961,14 +13021,14 @@ CircleBucket.prototype.addFeature = function addFeature (feature, geometry, inde
             var y = point.y;
             if (x < 0 || x >= EXTENT || y < 0 || y >= EXTENT)
                 { continue; }
-            var segment = this$1.segments.prepareSegment(4, this$1.layoutVertexArray, this$1.indexArray);
+            var segment = this.segments.prepareSegment(4, this.layoutVertexArray, this.indexArray);
             var index$1 = segment.vertexLength;
-            addCircleVertex(this$1.layoutVertexArray, x, y, -1, -1);
-            addCircleVertex(this$1.layoutVertexArray, x, y, 1, -1);
-            addCircleVertex(this$1.layoutVertexArray, x, y, 1, 1);
-            addCircleVertex(this$1.layoutVertexArray, x, y, -1, 1);
-            this$1.indexArray.emplaceBack(index$1, index$1 + 1, index$1 + 2);
-            this$1.indexArray.emplaceBack(index$1, index$1 + 3, index$1 + 2);
+            addCircleVertex(this.layoutVertexArray, x, y, -1, -1);
+            addCircleVertex(this.layoutVertexArray, x, y, 1, -1);
+            addCircleVertex(this.layoutVertexArray, x, y, 1, 1);
+            addCircleVertex(this.layoutVertexArray, x, y, -1, 1);
+            this.indexArray.emplaceBack(index$1, index$1 + 1, index$1 + 2);
+            this.indexArray.emplaceBack(index$1, index$1 + 3, index$1 + 2);
             segment.vertexLength += 4;
             segment.primitiveLength += 2;
         }
@@ -9990,54 +13050,45 @@ function polygonIntersectsPolygon(polygonA, polygonB) {
         { return true; }
     return false;
 }
-function multiPolygonIntersectsBufferedPoint(multiPolygon, point, radius) {
-    for (var j = 0; j < multiPolygon.length; j++) {
-        var polygon = multiPolygon[j];
-        if (polygonContainsPoint(polygon, point))
-            { return true; }
-        if (pointIntersectsBufferedLine(point, polygon, radius))
-            { return true; }
-    }
+function polygonIntersectsBufferedPoint(polygon, point, radius) {
+    if (polygonContainsPoint(polygon, point))
+        { return true; }
+    if (pointIntersectsBufferedLine(point, polygon, radius))
+        { return true; }
     return false;
 }
-function multiPolygonIntersectsMultiPolygon(multiPolygonA, multiPolygonB) {
-    if (multiPolygonA.length === 1 && multiPolygonA[0].length === 1) {
-        return multiPolygonContainsPoint(multiPolygonB, multiPolygonA[0][0]);
+function polygonIntersectsMultiPolygon(polygon, multiPolygon) {
+    if (polygon.length === 1) {
+        return multiPolygonContainsPoint(multiPolygon, polygon[0]);
     }
-    for (var m = 0; m < multiPolygonB.length; m++) {
-        var ring = multiPolygonB[m];
+    for (var m = 0; m < multiPolygon.length; m++) {
+        var ring = multiPolygon[m];
         for (var n = 0; n < ring.length; n++) {
-            if (multiPolygonContainsPoint(multiPolygonA, ring[n]))
+            if (polygonContainsPoint(polygon, ring[n]))
                 { return true; }
         }
     }
-    for (var j = 0; j < multiPolygonA.length; j++) {
-        var polygon = multiPolygonA[j];
-        for (var i = 0; i < polygon.length; i++) {
-            if (multiPolygonContainsPoint(multiPolygonB, polygon[i]))
-                { return true; }
-        }
-        for (var k = 0; k < multiPolygonB.length; k++) {
-            if (lineIntersectsLine(polygon, multiPolygonB[k]))
-                { return true; }
-        }
+    for (var i = 0; i < polygon.length; i++) {
+        if (multiPolygonContainsPoint(multiPolygon, polygon[i]))
+            { return true; }
+    }
+    for (var k = 0; k < multiPolygon.length; k++) {
+        if (lineIntersectsLine(polygon, multiPolygon[k]))
+            { return true; }
     }
     return false;
 }
-function multiPolygonIntersectsBufferedMultiLine(multiPolygon, multiLine, radius) {
+function polygonIntersectsBufferedMultiLine(polygon, multiLine, radius) {
     for (var i = 0; i < multiLine.length; i++) {
         var line = multiLine[i];
-        for (var j = 0; j < multiPolygon.length; j++) {
-            var polygon = multiPolygon[j];
-            if (polygon.length >= 3) {
-                for (var k = 0; k < line.length; k++) {
-                    if (polygonContainsPoint(polygon, line[k]))
-                        { return true; }
-                }
+        if (polygon.length >= 3) {
+            for (var k = 0; k < line.length; k++) {
+                if (polygonContainsPoint(polygon, line[k]))
+                    { return true; }
             }
-            if (lineIntersectsBufferedLine(polygon, line, radius))
-                { return true; }
         }
+        if (lineIntersectsBufferedLine(polygon, line, radius))
+            { return true; }
     }
     return false;
 }
@@ -10121,6 +13172,43 @@ function polygonContainsPoint(ring, p) {
     }
     return c;
 }
+function polygonIntersectsBox(ring, boxX1, boxY1, boxX2, boxY2) {
+    for (var i$1 = 0, list = ring; i$1 < list.length; i$1 += 1) {
+        var p = list[i$1];
+
+        if (boxX1 <= p.x && boxY1 <= p.y && boxX2 >= p.x && boxY2 >= p.y)
+            { return true; }
+    }
+    var corners = [
+        new pointGeometry(boxX1, boxY1),
+        new pointGeometry(boxX1, boxY2),
+        new pointGeometry(boxX2, boxY2),
+        new pointGeometry(boxX2, boxY1)
+    ];
+    if (ring.length > 2) {
+        for (var i$2 = 0, list$1 = corners; i$2 < list$1.length; i$2 += 1) {
+            var corner = list$1[i$2];
+
+            if (polygonContainsPoint(ring, corner))
+                { return true; }
+        }
+    }
+    for (var i = 0; i < ring.length - 1; i++) {
+        var p1 = ring[i];
+        var p2 = ring[i + 1];
+        if (edgeIntersectsBox(p1, p2, corners))
+            { return true; }
+    }
+    return false;
+}
+function edgeIntersectsBox(e1, e2, corners) {
+    var tl = corners[0];
+    var br = corners[2];
+    if (e1.x < tl.x && e2.x < tl.x || e1.x > br.x && e2.x > br.x || e1.y < tl.y && e2.y < tl.y || e1.y > br.y && e2.y > br.y)
+        { return false; }
+    var dir = isCounterClockwise(e1, e2, corners[0]);
+    return dir !== isCounterClockwise(e1, e2, corners[1]) || dir !== isCounterClockwise(e1, e2, corners[2]) || dir !== isCounterClockwise(e1, e2, corners[3]);
+}
 
 function getMaximumPaintValue(property, layer, bucket) {
     var value = layer.paint.get(property).value;
@@ -10138,45 +13226,44 @@ function translate(queryGeometry, translate, translateAnchor, bearing, pixelsToT
     if (!translate[0] && !translate[1]) {
         return queryGeometry;
     }
-    var pt = pointGeometry.convert(translate);
+    var pt = pointGeometry.convert(translate)._mult(pixelsToTileUnits);
     if (translateAnchor === 'viewport') {
         pt._rotate(-bearing);
     }
     var translated = [];
     for (var i = 0; i < queryGeometry.length; i++) {
-        var ring = queryGeometry[i];
-        var translatedRing = [];
-        for (var k = 0; k < ring.length; k++) {
-            translatedRing.push(ring[k].sub(pt._mult(pixelsToTileUnits)));
-        }
-        translated.push(translatedRing);
+        var point = queryGeometry[i];
+        translated.push(point.sub(pt));
     }
     return translated;
 }
 
 var paint$1 = new Properties({
-    'circle-radius': new DataDrivenProperty(styleSpec['paint_circle']['circle-radius']),
-    'circle-color': new DataDrivenProperty(styleSpec['paint_circle']['circle-color']),
-    'circle-blur': new DataDrivenProperty(styleSpec['paint_circle']['circle-blur']),
-    'circle-opacity': new DataDrivenProperty(styleSpec['paint_circle']['circle-opacity']),
-    'circle-translate': new DataConstantProperty(styleSpec['paint_circle']['circle-translate']),
-    'circle-translate-anchor': new DataConstantProperty(styleSpec['paint_circle']['circle-translate-anchor']),
-    'circle-pitch-scale': new DataConstantProperty(styleSpec['paint_circle']['circle-pitch-scale']),
-    'circle-pitch-alignment': new DataConstantProperty(styleSpec['paint_circle']['circle-pitch-alignment']),
-    'circle-stroke-width': new DataDrivenProperty(styleSpec['paint_circle']['circle-stroke-width']),
-    'circle-stroke-color': new DataDrivenProperty(styleSpec['paint_circle']['circle-stroke-color']),
-    'circle-stroke-opacity': new DataDrivenProperty(styleSpec['paint_circle']['circle-stroke-opacity'])
+    'circle-radius': new DataDrivenProperty(spec['paint_circle']['circle-radius']),
+    'circle-color': new DataDrivenProperty(spec['paint_circle']['circle-color']),
+    'circle-blur': new DataDrivenProperty(spec['paint_circle']['circle-blur']),
+    'circle-opacity': new DataDrivenProperty(spec['paint_circle']['circle-opacity']),
+    'circle-translate': new DataConstantProperty(spec['paint_circle']['circle-translate']),
+    'circle-translate-anchor': new DataConstantProperty(spec['paint_circle']['circle-translate-anchor']),
+    'circle-pitch-scale': new DataConstantProperty(spec['paint_circle']['circle-pitch-scale']),
+    'circle-pitch-alignment': new DataConstantProperty(spec['paint_circle']['circle-pitch-alignment']),
+    'circle-stroke-width': new DataDrivenProperty(spec['paint_circle']['circle-stroke-width']),
+    'circle-stroke-color': new DataDrivenProperty(spec['paint_circle']['circle-stroke-color']),
+    'circle-stroke-opacity': new DataDrivenProperty(spec['paint_circle']['circle-stroke-opacity'])
 });
 var properties = { paint: paint$1 };
 
+var EPSILON = 0.000001;
 var ARRAY_TYPE = typeof Float32Array !== 'undefined' ? Float32Array : Array;
 var degree = Math.PI / 180;
 
 function create() {
     var out = new ARRAY_TYPE(4);
+    if (ARRAY_TYPE != Float32Array) {
+        out[1] = 0;
+        out[2] = 0;
+    }
     out[0] = 1;
-    out[1] = 0;
-    out[2] = 0;
     out[3] = 1;
     return out;
 }
@@ -10193,14 +13280,16 @@ function rotate(out, a, rad) {
 
 function create$2() {
     var out = new ARRAY_TYPE(9);
+    if (ARRAY_TYPE != Float32Array) {
+        out[1] = 0;
+        out[2] = 0;
+        out[3] = 0;
+        out[5] = 0;
+        out[6] = 0;
+        out[7] = 0;
+    }
     out[0] = 1;
-    out[1] = 0;
-    out[2] = 0;
-    out[3] = 0;
     out[4] = 1;
-    out[5] = 0;
-    out[6] = 0;
-    out[7] = 0;
     out[8] = 1;
     return out;
 }
@@ -10220,21 +13309,23 @@ function fromRotation$2(out, rad) {
 
 function create$3() {
     var out = new ARRAY_TYPE(16);
+    if (ARRAY_TYPE != Float32Array) {
+        out[1] = 0;
+        out[2] = 0;
+        out[3] = 0;
+        out[4] = 0;
+        out[6] = 0;
+        out[7] = 0;
+        out[8] = 0;
+        out[9] = 0;
+        out[11] = 0;
+        out[12] = 0;
+        out[13] = 0;
+        out[14] = 0;
+    }
     out[0] = 1;
-    out[1] = 0;
-    out[2] = 0;
-    out[3] = 0;
-    out[4] = 0;
     out[5] = 1;
-    out[6] = 0;
-    out[7] = 0;
-    out[8] = 0;
-    out[9] = 0;
     out[10] = 1;
-    out[11] = 0;
-    out[12] = 0;
-    out[13] = 0;
-    out[14] = 0;
     out[15] = 1;
     return out;
 }
@@ -10458,8 +13549,7 @@ function rotateZ(out, a, rad) {
     return out;
 }
 function perspective(out, fovy, aspect, near, far) {
-    var f = 1 / Math.tan(fovy / 2);
-    var nf = 1 / (near - far);
+    var f = 1 / Math.tan(fovy / 2), nf;
     out[0] = f / aspect;
     out[1] = 0;
     out[2] = 0;
@@ -10470,12 +13560,18 @@ function perspective(out, fovy, aspect, near, far) {
     out[7] = 0;
     out[8] = 0;
     out[9] = 0;
-    out[10] = (far + near) * nf;
     out[11] = -1;
     out[12] = 0;
     out[13] = 0;
-    out[14] = 2 * far * near * nf;
     out[15] = 0;
+    if (far != null && far !== Infinity) {
+        nf = 1 / (near - far);
+        out[10] = (far + near) * nf;
+        out[14] = 2 * far * near * nf;
+    } else {
+        out[10] = -1;
+        out[14] = -2 * near;
+    }
     return out;
 }
 function ortho(out, left, right, bottom, top, near, far) {
@@ -10503,9 +13599,11 @@ function ortho(out, left, right, bottom, top, near, far) {
 
 function create$4() {
     var out = new ARRAY_TYPE(3);
-    out[0] = 0;
-    out[1] = 0;
-    out[2] = 0;
+    if (ARRAY_TYPE != Float32Array) {
+        out[0] = 0;
+        out[1] = 0;
+        out[2] = 0;
+    }
     return out;
 }
 function length(a) {
@@ -10528,10 +13626,10 @@ function normalize(out, a) {
     var len = x * x + y * y + z * z;
     if (len > 0) {
         len = 1 / Math.sqrt(len);
-        out[0] = a[0] * len;
-        out[1] = a[1] * len;
-        out[2] = a[2] * len;
     }
+    out[0] = a[0] * len;
+    out[1] = a[1] * len;
+    out[2] = a[2] * len;
     return out;
 }
 function dot(a, b) {
@@ -10583,10 +13681,12 @@ var forEach = function () {
 
 function create$5() {
     var out = new ARRAY_TYPE(4);
-    out[0] = 0;
-    out[1] = 0;
-    out[2] = 0;
-    out[3] = 0;
+    if (ARRAY_TYPE != Float32Array) {
+        out[0] = 0;
+        out[1] = 0;
+        out[2] = 0;
+        out[3] = 0;
+    }
     return out;
 }
 function normalize$1(out, a) {
@@ -10597,11 +13697,11 @@ function normalize$1(out, a) {
     var len = x * x + y * y + z * z + w * w;
     if (len > 0) {
         len = 1 / Math.sqrt(len);
-        out[0] = x * len;
-        out[1] = y * len;
-        out[2] = z * len;
-        out[3] = w * len;
     }
+    out[0] = x * len;
+    out[1] = y * len;
+    out[2] = z * len;
+    out[3] = w * len;
     return out;
 }
 function transformMat4$1(out, a, m) {
@@ -10644,9 +13744,11 @@ var forEach$1 = function () {
 
 function create$6() {
     var out = new ARRAY_TYPE(4);
-    out[0] = 0;
-    out[1] = 0;
-    out[2] = 0;
+    if (ARRAY_TYPE != Float32Array) {
+        out[0] = 0;
+        out[1] = 0;
+        out[2] = 0;
+    }
     out[3] = 1;
     return out;
 }
@@ -10671,7 +13773,7 @@ function slerp(out, a, b, t) {
         bz = -bz;
         bw = -bw;
     }
-    if (1 - cosom > 0.000001) {
+    if (1 - cosom > EPSILON) {
         omega = Math.acos(cosom);
         sinom = Math.sin(omega);
         scale0 = Math.sin((1 - t) * omega) / sinom;
@@ -10771,8 +13873,10 @@ var setAxes = function () {
 
 function create$8() {
     var out = new ARRAY_TYPE(2);
-    out[0] = 0;
-    out[1] = 0;
+    if (ARRAY_TYPE != Float32Array) {
+        out[0] = 0;
+        out[1] = 0;
+    }
     return out;
 }
 var forEach$2 = function () {
@@ -10801,7 +13905,7 @@ var forEach$2 = function () {
     };
 }();
 
-var CircleStyleLayer = (function (StyleLayer$$1) {
+var CircleStyleLayer = /*@__PURE__*/(function (StyleLayer$$1) {
     function CircleStyleLayer(layer) {
         StyleLayer$$1.call(this, layer, properties);
     }
@@ -10816,15 +13920,13 @@ var CircleStyleLayer = (function (StyleLayer$$1) {
         var circleBucket = bucket;
         return getMaximumPaintValue('circle-radius', this, circleBucket) + getMaximumPaintValue('circle-stroke-width', this, circleBucket) + translateDistance(this.paint.get('circle-translate'));
     };
-    CircleStyleLayer.prototype.queryIntersectsFeature = function queryIntersectsFeature (queryGeometry, feature, featureState, geometry, zoom, transform, pixelsToTileUnits, posMatrix) {
-        var this$1 = this;
-
+    CircleStyleLayer.prototype.queryIntersectsFeature = function queryIntersectsFeature (queryGeometry, feature, featureState, geometry, zoom, transform, pixelsToTileUnits, pixelPosMatrix) {
         var translatedPolygon = translate(queryGeometry, this.paint.get('circle-translate'), this.paint.get('circle-translate-anchor'), transform.angle, pixelsToTileUnits);
         var radius = this.paint.get('circle-radius').evaluate(feature, featureState);
         var stroke = this.paint.get('circle-stroke-width').evaluate(feature, featureState);
         var size = radius + stroke;
         var alignWithMap = this.paint.get('circle-pitch-alignment') === 'map';
-        var transformedPolygon = alignWithMap ? translatedPolygon : projectQueryGeometry(translatedPolygon, posMatrix, transform);
+        var transformedPolygon = alignWithMap ? translatedPolygon : projectQueryGeometry(translatedPolygon, pixelPosMatrix);
         var transformedSize = alignWithMap ? size * pixelsToTileUnits : size;
         for (var i$1 = 0, list$1 = geometry; i$1 < list$1.length; i$1 += 1) {
             var ring = list$1[i$1];
@@ -10832,20 +13934,20 @@ var CircleStyleLayer = (function (StyleLayer$$1) {
             for (var i = 0, list = ring; i < list.length; i += 1) {
                 var point = list[i];
 
-                var transformedPoint = alignWithMap ? point : projectPoint(point, posMatrix, transform);
+                var transformedPoint = alignWithMap ? point : projectPoint(point, pixelPosMatrix);
                 var adjustedSize = transformedSize;
                 var projectedCenter = transformMat4$1([], [
                     point.x,
                     point.y,
                     0,
                     1
-                ], posMatrix);
-                if (this$1.paint.get('circle-pitch-scale') === 'viewport' && this$1.paint.get('circle-pitch-alignment') === 'map') {
+                ], pixelPosMatrix);
+                if (this.paint.get('circle-pitch-scale') === 'viewport' && this.paint.get('circle-pitch-alignment') === 'map') {
                     adjustedSize *= projectedCenter[3] / transform.cameraToCenterDistance;
-                } else if (this$1.paint.get('circle-pitch-scale') === 'map' && this$1.paint.get('circle-pitch-alignment') === 'viewport') {
+                } else if (this.paint.get('circle-pitch-scale') === 'map' && this.paint.get('circle-pitch-alignment') === 'viewport') {
                     adjustedSize *= transform.cameraToCenterDistance / projectedCenter[3];
                 }
-                if (multiPolygonIntersectsBufferedPoint(transformedPolygon, transformedPoint, adjustedSize))
+                if (polygonIntersectsBufferedPoint(transformedPolygon, transformedPoint, adjustedSize))
                     { return true; }
             }
         }
@@ -10854,24 +13956,22 @@ var CircleStyleLayer = (function (StyleLayer$$1) {
 
     return CircleStyleLayer;
 }(StyleLayer));
-function projectPoint(p, posMatrix, transform) {
+function projectPoint(p, pixelPosMatrix) {
     var point = transformMat4$1([], [
         p.x,
         p.y,
         0,
         1
-    ], posMatrix);
-    return new pointGeometry((point[0] / point[3] + 1) * transform.width * 0.5, (point[1] / point[3] + 1) * transform.height * 0.5);
+    ], pixelPosMatrix);
+    return new pointGeometry(point[0] / point[3], point[1] / point[3]);
 }
-function projectQueryGeometry(queryGeometry, posMatrix, transform) {
-    return queryGeometry.map(function (r) {
-        return r.map(function (p) {
-            return projectPoint(p, posMatrix, transform);
-        });
+function projectQueryGeometry(queryGeometry, pixelPosMatrix) {
+    return queryGeometry.map(function (p) {
+        return projectPoint(p, pixelPosMatrix);
     });
 }
 
-var HeatmapBucket = (function (CircleBucket$$1) {
+var HeatmapBucket = /*@__PURE__*/(function (CircleBucket$$1) {
 	function HeatmapBucket () {
 		CircleBucket$$1.apply(this, arguments);
 	}if ( CircleBucket$$1 ) HeatmapBucket.__proto__ = CircleBucket$$1;
@@ -10978,11 +14078,11 @@ register('AlphaImage', AlphaImage);
 register('RGBAImage', RGBAImage);
 
 var paint$2 = new Properties({
-    'heatmap-radius': new DataDrivenProperty(styleSpec['paint_heatmap']['heatmap-radius']),
-    'heatmap-weight': new DataDrivenProperty(styleSpec['paint_heatmap']['heatmap-weight']),
-    'heatmap-intensity': new DataConstantProperty(styleSpec['paint_heatmap']['heatmap-intensity']),
-    'heatmap-color': new ColorRampProperty(styleSpec['paint_heatmap']['heatmap-color']),
-    'heatmap-opacity': new DataConstantProperty(styleSpec['paint_heatmap']['heatmap-opacity'])
+    'heatmap-radius': new DataDrivenProperty(spec['paint_heatmap']['heatmap-radius']),
+    'heatmap-weight': new DataDrivenProperty(spec['paint_heatmap']['heatmap-weight']),
+    'heatmap-intensity': new DataConstantProperty(spec['paint_heatmap']['heatmap-intensity']),
+    'heatmap-color': new ColorRampProperty(spec['paint_heatmap']['heatmap-color']),
+    'heatmap-opacity': new DataConstantProperty(spec['paint_heatmap']['heatmap-opacity'])
 });
 var properties$1 = { paint: paint$2 };
 
@@ -11003,7 +14103,7 @@ function renderColorRamp(expression, colorRampEvaluationParameter) {
     }, colorRampData);
 }
 
-var HeatmapStyleLayer = (function (StyleLayer$$1) {
+var HeatmapStyleLayer = /*@__PURE__*/(function (StyleLayer$$1) {
     function HeatmapStyleLayer(layer) {
         StyleLayer$$1.call(this, layer, properties$1);
         this._updateColorRamp();
@@ -11046,16 +14146,16 @@ var HeatmapStyleLayer = (function (StyleLayer$$1) {
 }(StyleLayer));
 
 var paint$3 = new Properties({
-    'hillshade-illumination-direction': new DataConstantProperty(styleSpec['paint_hillshade']['hillshade-illumination-direction']),
-    'hillshade-illumination-anchor': new DataConstantProperty(styleSpec['paint_hillshade']['hillshade-illumination-anchor']),
-    'hillshade-exaggeration': new DataConstantProperty(styleSpec['paint_hillshade']['hillshade-exaggeration']),
-    'hillshade-shadow-color': new DataConstantProperty(styleSpec['paint_hillshade']['hillshade-shadow-color']),
-    'hillshade-highlight-color': new DataConstantProperty(styleSpec['paint_hillshade']['hillshade-highlight-color']),
-    'hillshade-accent-color': new DataConstantProperty(styleSpec['paint_hillshade']['hillshade-accent-color'])
+    'hillshade-illumination-direction': new DataConstantProperty(spec['paint_hillshade']['hillshade-illumination-direction']),
+    'hillshade-illumination-anchor': new DataConstantProperty(spec['paint_hillshade']['hillshade-illumination-anchor']),
+    'hillshade-exaggeration': new DataConstantProperty(spec['paint_hillshade']['hillshade-exaggeration']),
+    'hillshade-shadow-color': new DataConstantProperty(spec['paint_hillshade']['hillshade-shadow-color']),
+    'hillshade-highlight-color': new DataConstantProperty(spec['paint_hillshade']['hillshade-highlight-color']),
+    'hillshade-accent-color': new DataConstantProperty(spec['paint_hillshade']['hillshade-accent-color'])
 });
 var properties$2 = { paint: paint$3 };
 
-var HillshadeStyleLayer = (function (StyleLayer$$1) {
+var HillshadeStyleLayer = /*@__PURE__*/(function (StyleLayer$$1) {
     function HillshadeStyleLayer(layer) {
         StyleLayer$$1.call(this, layer, properties$2);
     }
@@ -11084,7 +14184,7 @@ var default_1 = earcut;
 function earcut(data, holeIndices, dim) {
     dim = dim || 2;
     var hasHoles = holeIndices && holeIndices.length, outerLen = hasHoles ? holeIndices[0] * dim : data.length, outerNode = linkedList(data, 0, outerLen, dim, true), triangles = [];
-    if (!outerNode)
+    if (!outerNode || outerNode.next === outerNode.prev)
         { return triangles; }
     var minX, minY, maxX, maxY, x, y, invSize;
     if (hasHoles)
@@ -11384,7 +14484,7 @@ function zOrder(x, y, minX, minY, invSize) {
 function getLeftmost(start) {
     var p = start, leftmost = start;
     do {
-        if (p.x < leftmost.x)
+        if (p.x < leftmost.x || p.x === leftmost.x && p.y < leftmost.y)
             { leftmost = p; }
         p = p.next;
     } while (p !== start);
@@ -11520,8 +14620,6 @@ earcut.flatten = function (data) {
 };
 earcut_1.default = default_1;
 
-var quickselect_1 = quickselect;
-var default_1$1 = quickselect;
 function quickselect(arr, k, left, right, compare) {
     quickselectStep(arr, k, left || 0, right || arr.length - 1, compare || defaultCompare);
 }
@@ -11572,7 +14670,6 @@ function swap$1(arr, i, j) {
 function defaultCompare(a, b) {
     return a < b ? -1 : a > b ? 1 : 0;
 }
-quickselect_1.default = default_1$1;
 
 function classifyRings(rings, maxRings) {
     var len = rings.length;
@@ -11601,7 +14698,7 @@ function classifyRings(rings, maxRings) {
         for (var j = 0; j < polygons.length; j++) {
             if (polygons[j].length <= maxRings)
                 { continue; }
-            quickselect_1(polygons[j], maxRings, 1, polygons[j].length - 1, compareAreas);
+            quickselect(polygons[j], maxRings, 1, polygons[j].length - 1, compareAreas);
             polygons[j] = polygons[j].slice(0, maxRings);
         }
     }
@@ -11668,10 +14765,9 @@ var FillBucket = function FillBucket(options) {
     this.programConfigurations = new ProgramConfigurationSet(members$1, options.layers, options.zoom);
     this.segments = new SegmentVector();
     this.segments2 = new SegmentVector();
+    this.stateDependentLayerIds = this.layers.filter(function (l) { return l.isStateDependent(); }).map(function (l) { return l.id; });
 };
 FillBucket.prototype.populate = function populate (features, options) {
-        var this$1 = this;
-
     this.features = [];
     this.hasPattern = hasPattern('fill', this.layers, options);
     for (var i = 0, list = features; i < list.length; i += 1) {
@@ -11680,7 +14776,7 @@ FillBucket.prototype.populate = function populate (features, options) {
             var index = ref.index;
             var sourceLayerIndex = ref.sourceLayerIndex;
 
-            if (!this$1.layers[0]._featureFilter(new EvaluationParameters(this$1.zoom), feature))
+            if (!this.layers[0]._featureFilter(new EvaluationParameters(this.zoom), feature))
             { continue; }
         var geometry = loadGeometry(feature);
         var patternFeature = {
@@ -11694,12 +14790,12 @@ FillBucket.prototype.populate = function populate (features, options) {
         if (typeof feature.id !== 'undefined') {
             patternFeature.id = feature.id;
         }
-        if (this$1.hasPattern) {
-            this$1.features.push(addPatternDependencies('fill', this$1.layers, patternFeature, this$1.zoom, options));
+        if (this.hasPattern) {
+            this.features.push(addPatternDependencies('fill', this.layers, patternFeature, this.zoom, options));
         } else {
-            this$1.addFeature(patternFeature, geometry, index, {});
+            this.addFeature(patternFeature, geometry, index, {});
         }
-        options.featureIndex.insert(feature, geometry, index, sourceLayerIndex, this$1.index);
+        options.featureIndex.insert(feature, geometry, index, sourceLayerIndex, this.index);
     }
 };
 FillBucket.prototype.update = function update (states, vtLayer, imagePositions) {
@@ -11708,13 +14804,11 @@ FillBucket.prototype.update = function update (states, vtLayer, imagePositions) 
     this.programConfigurations.updatePaintArrays(states, vtLayer, this.stateDependentLayers, imagePositions);
 };
 FillBucket.prototype.addFeatures = function addFeatures (options, imagePositions) {
-        var this$1 = this;
-
-    for (var i = 0, list = this$1.features; i < list.length; i += 1) {
+    for (var i = 0, list = this.features; i < list.length; i += 1) {
         var feature = list[i];
 
             var geometry = feature.geometry;
-        this$1.addFeature(feature, geometry, feature.index, imagePositions);
+        this.addFeature(feature, geometry, feature.index, imagePositions);
     }
 };
 FillBucket.prototype.isEmpty = function isEmpty () {
@@ -11743,8 +14837,6 @@ FillBucket.prototype.destroy = function destroy () {
     this.segments2.destroy();
 };
 FillBucket.prototype.addFeature = function addFeature (feature, geometry, index, imagePositions) {
-        var this$1 = this;
-
     for (var i$4 = 0, list$2 = classifyRings(geometry, EARCUT_MAX_RINGS); i$4 < list$2.length; i$4 += 1) {
         var polygon = list$2[i$4];
 
@@ -11754,7 +14846,7 @@ FillBucket.prototype.addFeature = function addFeature (feature, geometry, index,
 
                 numVertices += ring.length;
         }
-        var triangleSegment = this$1.segments.prepareSegment(numVertices, this$1.layoutVertexArray, this$1.indexArray);
+        var triangleSegment = this.segments.prepareSegment(numVertices, this.layoutVertexArray, this.indexArray);
         var triangleIndex = triangleSegment.vertexLength;
         var flattened = [];
         var holeIndices = [];
@@ -11767,15 +14859,15 @@ FillBucket.prototype.addFeature = function addFeature (feature, geometry, index,
             if (ring$1 !== polygon[0]) {
                 holeIndices.push(flattened.length / 2);
             }
-            var lineSegment = this$1.segments2.prepareSegment(ring$1.length, this$1.layoutVertexArray, this$1.indexArray2);
+            var lineSegment = this.segments2.prepareSegment(ring$1.length, this.layoutVertexArray, this.indexArray2);
             var lineIndex = lineSegment.vertexLength;
-            this$1.layoutVertexArray.emplaceBack(ring$1[0].x, ring$1[0].y);
-            this$1.indexArray2.emplaceBack(lineIndex + ring$1.length - 1, lineIndex);
+            this.layoutVertexArray.emplaceBack(ring$1[0].x, ring$1[0].y);
+            this.indexArray2.emplaceBack(lineIndex + ring$1.length - 1, lineIndex);
             flattened.push(ring$1[0].x);
             flattened.push(ring$1[0].y);
             for (var i = 1; i < ring$1.length; i++) {
-                this$1.layoutVertexArray.emplaceBack(ring$1[i].x, ring$1[i].y);
-                this$1.indexArray2.emplaceBack(lineIndex + i - 1, lineIndex + i);
+                this.layoutVertexArray.emplaceBack(ring$1[i].x, ring$1[i].y);
+                this.indexArray2.emplaceBack(lineIndex + i - 1, lineIndex + i);
                 flattened.push(ring$1[i].x);
                 flattened.push(ring$1[i].y);
             }
@@ -11784,7 +14876,7 @@ FillBucket.prototype.addFeature = function addFeature (feature, geometry, index,
         }
         var indices = earcut_1(flattened, holeIndices);
         for (var i$1 = 0; i$1 < indices.length; i$1 += 3) {
-            this$1.indexArray.emplaceBack(triangleIndex + indices[i$1], triangleIndex + indices[i$1 + 1], triangleIndex + indices[i$1 + 2]);
+            this.indexArray.emplaceBack(triangleIndex + indices[i$1], triangleIndex + indices[i$1 + 1], triangleIndex + indices[i$1 + 2]);
         }
         triangleSegment.vertexLength += numVertices;
         triangleSegment.primitiveLength += indices.length / 3;
@@ -11799,17 +14891,17 @@ register('FillBucket', FillBucket, {
 });
 
 var paint$4 = new Properties({
-    'fill-antialias': new DataConstantProperty(styleSpec['paint_fill']['fill-antialias']),
-    'fill-opacity': new DataDrivenProperty(styleSpec['paint_fill']['fill-opacity']),
-    'fill-color': new DataDrivenProperty(styleSpec['paint_fill']['fill-color']),
-    'fill-outline-color': new DataDrivenProperty(styleSpec['paint_fill']['fill-outline-color']),
-    'fill-translate': new DataConstantProperty(styleSpec['paint_fill']['fill-translate']),
-    'fill-translate-anchor': new DataConstantProperty(styleSpec['paint_fill']['fill-translate-anchor']),
-    'fill-pattern': new CrossFadedDataDrivenProperty(styleSpec['paint_fill']['fill-pattern'])
+    'fill-antialias': new DataConstantProperty(spec['paint_fill']['fill-antialias']),
+    'fill-opacity': new DataDrivenProperty(spec['paint_fill']['fill-opacity']),
+    'fill-color': new DataDrivenProperty(spec['paint_fill']['fill-color']),
+    'fill-outline-color': new DataDrivenProperty(spec['paint_fill']['fill-outline-color']),
+    'fill-translate': new DataConstantProperty(spec['paint_fill']['fill-translate']),
+    'fill-translate-anchor': new DataConstantProperty(spec['paint_fill']['fill-translate-anchor']),
+    'fill-pattern': new CrossFadedDataDrivenProperty(spec['paint_fill']['fill-pattern'])
 });
 var properties$3 = { paint: paint$4 };
 
-var FillStyleLayer = (function (StyleLayer$$1) {
+var FillStyleLayer = /*@__PURE__*/(function (StyleLayer$$1) {
     function FillStyleLayer(layer) {
         StyleLayer$$1.call(this, layer, properties$3);
     }
@@ -11832,7 +14924,7 @@ var FillStyleLayer = (function (StyleLayer$$1) {
     };
     FillStyleLayer.prototype.queryIntersectsFeature = function queryIntersectsFeature (queryGeometry, feature, featureState, geometry, zoom, transform, pixelsToTileUnits) {
         var translatedPolygon = translate(queryGeometry, this.paint.get('fill-translate'), this.paint.get('fill-translate-anchor'), transform.angle, pixelsToTileUnits);
-        return multiPolygonIntersectsMultiPolygon(translatedPolygon, geometry);
+        return polygonIntersectsMultiPolygon(translatedPolygon, geometry);
     };
 
     return FillStyleLayer;
@@ -11870,10 +14962,9 @@ var FillExtrusionBucket = function FillExtrusionBucket(options) {
     this.indexArray = new StructArrayLayout3ui6();
     this.programConfigurations = new ProgramConfigurationSet(members$2, options.layers, options.zoom);
     this.segments = new SegmentVector();
+    this.stateDependentLayerIds = this.layers.filter(function (l) { return l.isStateDependent(); }).map(function (l) { return l.id; });
 };
 FillExtrusionBucket.prototype.populate = function populate (features, options) {
-        var this$1 = this;
-
     this.features = [];
     this.hasPattern = hasPattern('fill-extrusion', this.layers, options);
     for (var i = 0, list = features; i < list.length; i += 1) {
@@ -11882,7 +14973,7 @@ FillExtrusionBucket.prototype.populate = function populate (features, options) {
             var index = ref.index;
             var sourceLayerIndex = ref.sourceLayerIndex;
 
-            if (!this$1.layers[0]._featureFilter(new EvaluationParameters(this$1.zoom), feature))
+            if (!this.layers[0]._featureFilter(new EvaluationParameters(this.zoom), feature))
             { continue; }
         var geometry = loadGeometry(feature);
         var patternFeature = {
@@ -11896,22 +14987,20 @@ FillExtrusionBucket.prototype.populate = function populate (features, options) {
         if (typeof feature.id !== 'undefined') {
             patternFeature.id = feature.id;
         }
-        if (this$1.hasPattern) {
-            this$1.features.push(addPatternDependencies('fill-extrusion', this$1.layers, patternFeature, this$1.zoom, options));
+        if (this.hasPattern) {
+            this.features.push(addPatternDependencies('fill-extrusion', this.layers, patternFeature, this.zoom, options));
         } else {
-            this$1.addFeature(patternFeature, geometry, index, {});
+            this.addFeature(patternFeature, geometry, index, {});
         }
-        options.featureIndex.insert(feature, geometry, index, sourceLayerIndex, this$1.index);
+        options.featureIndex.insert(feature, geometry, index, sourceLayerIndex, this.index, true);
     }
 };
 FillExtrusionBucket.prototype.addFeatures = function addFeatures (options, imagePositions) {
-        var this$1 = this;
-
-    for (var i = 0, list = this$1.features; i < list.length; i += 1) {
+    for (var i = 0, list = this.features; i < list.length; i += 1) {
         var feature = list[i];
 
             var geometry = feature.geometry;
-        this$1.addFeature(feature, geometry, feature.index, imagePositions);
+        this.addFeature(feature, geometry, feature.index, imagePositions);
     }
 };
 FillExtrusionBucket.prototype.update = function update (states, vtLayer, imagePositions) {
@@ -11942,8 +15031,6 @@ FillExtrusionBucket.prototype.destroy = function destroy () {
     this.segments.destroy();
 };
 FillExtrusionBucket.prototype.addFeature = function addFeature (feature, geometry, index, imagePositions) {
-        var this$1 = this;
-
     for (var i$4 = 0, list$3 = classifyRings(geometry, EARCUT_MAX_RINGS$1); i$4 < list$3.length; i$4 += 1) {
         var polygon = list$3[i$4];
 
@@ -11953,7 +15040,7 @@ FillExtrusionBucket.prototype.addFeature = function addFeature (feature, geometr
 
                 numVertices += ring.length;
         }
-        var segment = this$1.segments.prepareSegment(4, this$1.layoutVertexArray, this$1.indexArray);
+        var segment = this.segments.prepareSegment(4, this.layoutVertexArray, this.indexArray);
         for (var i$2 = 0, list$1 = polygon; i$2 < list$1.length; i$2 += 1) {
             var ring$1 = list$1[i$2];
 
@@ -11970,20 +15057,20 @@ FillExtrusionBucket.prototype.addFeature = function addFeature (feature, geometr
                     var p2 = ring$1[p - 1];
                     if (!isBoundaryEdge(p1, p2)) {
                         if (segment.vertexLength + 4 > SegmentVector.MAX_VERTEX_ARRAY_LENGTH) {
-                            segment = this$1.segments.prepareSegment(4, this$1.layoutVertexArray, this$1.indexArray);
+                            segment = this.segments.prepareSegment(4, this.layoutVertexArray, this.indexArray);
                         }
                         var perp = p1.sub(p2)._perp()._unit();
                         var dist = p2.dist(p1);
                         if (edgeDistance + dist > 32768)
                             { edgeDistance = 0; }
-                        addVertex(this$1.layoutVertexArray, p1.x, p1.y, perp.x, perp.y, 0, 0, edgeDistance);
-                        addVertex(this$1.layoutVertexArray, p1.x, p1.y, perp.x, perp.y, 0, 1, edgeDistance);
+                        addVertex(this.layoutVertexArray, p1.x, p1.y, perp.x, perp.y, 0, 0, edgeDistance);
+                        addVertex(this.layoutVertexArray, p1.x, p1.y, perp.x, perp.y, 0, 1, edgeDistance);
                         edgeDistance += dist;
-                        addVertex(this$1.layoutVertexArray, p2.x, p2.y, perp.x, perp.y, 0, 0, edgeDistance);
-                        addVertex(this$1.layoutVertexArray, p2.x, p2.y, perp.x, perp.y, 0, 1, edgeDistance);
+                        addVertex(this.layoutVertexArray, p2.x, p2.y, perp.x, perp.y, 0, 0, edgeDistance);
+                        addVertex(this.layoutVertexArray, p2.x, p2.y, perp.x, perp.y, 0, 1, edgeDistance);
                         var bottomRight = segment.vertexLength;
-                        this$1.indexArray.emplaceBack(bottomRight, bottomRight + 2, bottomRight + 1);
-                        this$1.indexArray.emplaceBack(bottomRight + 1, bottomRight + 2, bottomRight + 3);
+                        this.indexArray.emplaceBack(bottomRight, bottomRight + 2, bottomRight + 1);
+                        this.indexArray.emplaceBack(bottomRight + 1, bottomRight + 2, bottomRight + 3);
                         segment.vertexLength += 4;
                         segment.primitiveLength += 2;
                     }
@@ -11991,7 +15078,7 @@ FillExtrusionBucket.prototype.addFeature = function addFeature (feature, geometr
             }
         }
         if (segment.vertexLength + numVertices > SegmentVector.MAX_VERTEX_ARRAY_LENGTH) {
-            segment = this$1.segments.prepareSegment(numVertices, this$1.layoutVertexArray, this$1.indexArray);
+            segment = this.segments.prepareSegment(numVertices, this.layoutVertexArray, this.indexArray);
         }
         var flattened = [];
         var holeIndices = [];
@@ -12007,14 +15094,14 @@ FillExtrusionBucket.prototype.addFeature = function addFeature (feature, geometr
             }
             for (var i = 0; i < ring$2.length; i++) {
                 var p$1 = ring$2[i];
-                addVertex(this$1.layoutVertexArray, p$1.x, p$1.y, 0, 0, 1, 1, 0);
+                addVertex(this.layoutVertexArray, p$1.x, p$1.y, 0, 0, 1, 1, 0);
                 flattened.push(p$1.x);
                 flattened.push(p$1.y);
             }
         }
         var indices = earcut_1(flattened, holeIndices);
         for (var j = 0; j < indices.length; j += 3) {
-            this$1.indexArray.emplaceBack(triangleIndex + indices[j], triangleIndex + indices[j + 2], triangleIndex + indices[j + 1]);
+            this.indexArray.emplaceBack(triangleIndex + indices[j], triangleIndex + indices[j + 2], triangleIndex + indices[j + 1]);
         }
         segment.primitiveLength += indices.length / 3;
         segment.vertexLength += numVertices;
@@ -12035,18 +15122,18 @@ function isEntirelyOutside(ring) {
 }
 
 var paint$5 = new Properties({
-    'fill-extrusion-opacity': new DataConstantProperty(styleSpec['paint_fill-extrusion']['fill-extrusion-opacity']),
-    'fill-extrusion-color': new DataDrivenProperty(styleSpec['paint_fill-extrusion']['fill-extrusion-color']),
-    'fill-extrusion-translate': new DataConstantProperty(styleSpec['paint_fill-extrusion']['fill-extrusion-translate']),
-    'fill-extrusion-translate-anchor': new DataConstantProperty(styleSpec['paint_fill-extrusion']['fill-extrusion-translate-anchor']),
-    'fill-extrusion-pattern': new CrossFadedDataDrivenProperty(styleSpec['paint_fill-extrusion']['fill-extrusion-pattern']),
-    'fill-extrusion-height': new DataDrivenProperty(styleSpec['paint_fill-extrusion']['fill-extrusion-height']),
-    'fill-extrusion-base': new DataDrivenProperty(styleSpec['paint_fill-extrusion']['fill-extrusion-base']),
-    'fill-extrusion-vertical-gradient': new DataConstantProperty(styleSpec['paint_fill-extrusion']['fill-extrusion-vertical-gradient'])
+    'fill-extrusion-opacity': new DataConstantProperty(spec['paint_fill-extrusion']['fill-extrusion-opacity']),
+    'fill-extrusion-color': new DataDrivenProperty(spec['paint_fill-extrusion']['fill-extrusion-color']),
+    'fill-extrusion-translate': new DataConstantProperty(spec['paint_fill-extrusion']['fill-extrusion-translate']),
+    'fill-extrusion-translate-anchor': new DataConstantProperty(spec['paint_fill-extrusion']['fill-extrusion-translate-anchor']),
+    'fill-extrusion-pattern': new CrossFadedDataDrivenProperty(spec['paint_fill-extrusion']['fill-extrusion-pattern']),
+    'fill-extrusion-height': new DataDrivenProperty(spec['paint_fill-extrusion']['fill-extrusion-height']),
+    'fill-extrusion-base': new DataDrivenProperty(spec['paint_fill-extrusion']['fill-extrusion-base']),
+    'fill-extrusion-vertical-gradient': new DataConstantProperty(spec['paint_fill-extrusion']['fill-extrusion-vertical-gradient'])
 });
 var properties$4 = { paint: paint$5 };
 
-var FillExtrusionStyleLayer = (function (StyleLayer$$1) {
+var FillExtrusionStyleLayer = /*@__PURE__*/(function (StyleLayer$$1) {
     function FillExtrusionStyleLayer(layer) {
         StyleLayer$$1.call(this, layer, properties$4);
     }
@@ -12060,9 +15147,15 @@ var FillExtrusionStyleLayer = (function (StyleLayer$$1) {
     FillExtrusionStyleLayer.prototype.queryRadius = function queryRadius () {
         return translateDistance(this.paint.get('fill-extrusion-translate'));
     };
-    FillExtrusionStyleLayer.prototype.queryIntersectsFeature = function queryIntersectsFeature (queryGeometry, feature, featureState, geometry, zoom, transform, pixelsToTileUnits) {
+    FillExtrusionStyleLayer.prototype.queryIntersectsFeature = function queryIntersectsFeature (queryGeometry, feature, featureState, geometry, zoom, transform, pixelsToTileUnits, pixelPosMatrix) {
         var translatedPolygon = translate(queryGeometry, this.paint.get('fill-extrusion-translate'), this.paint.get('fill-extrusion-translate-anchor'), transform.angle, pixelsToTileUnits);
-        return multiPolygonIntersectsMultiPolygon(translatedPolygon, geometry);
+        var height = this.paint.get('fill-extrusion-height').evaluate(feature, featureState);
+        var base = this.paint.get('fill-extrusion-base').evaluate(feature, featureState);
+        var projectedQueryGeometry = projectQueryGeometry$1(translatedPolygon, pixelPosMatrix, transform, 0);
+        var projected = projectExtrusion(geometry, base, height, pixelPosMatrix);
+        var projectedBase = projected[0];
+        var projectedTop = projected[1];
+        return checkIntersection(projectedBase, projectedTop, projectedQueryGeometry);
     };
     FillExtrusionStyleLayer.prototype.hasOffscreenPass = function hasOffscreenPass () {
         return this.paint.get('fill-extrusion-opacity') !== 0 && this.visibility !== 'none';
@@ -12076,6 +15169,129 @@ var FillExtrusionStyleLayer = (function (StyleLayer$$1) {
 
     return FillExtrusionStyleLayer;
 }(StyleLayer));
+function dot$5(a, b) {
+    return a.x * b.x + a.y * b.y;
+}
+function getIntersectionDistance(projectedQueryGeometry, projectedFace) {
+    if (projectedQueryGeometry.length === 1) {
+        var a = projectedFace[0];
+        var b = projectedFace[1];
+        var c = projectedFace[3];
+        var p = projectedQueryGeometry[0];
+        var ab = b.sub(a);
+        var ac = c.sub(a);
+        var ap = p.sub(a);
+        var dotABAB = dot$5(ab, ab);
+        var dotABAC = dot$5(ab, ac);
+        var dotACAC = dot$5(ac, ac);
+        var dotAPAB = dot$5(ap, ab);
+        var dotAPAC = dot$5(ap, ac);
+        var denom = dotABAB * dotACAC - dotABAC * dotABAC;
+        var v = (dotACAC * dotAPAB - dotABAC * dotAPAC) / denom;
+        var w = (dotABAB * dotAPAC - dotABAC * dotAPAB) / denom;
+        var u = 1 - v - w;
+        return a.z * u + b.z * v + c.z * w;
+    } else {
+        var closestDistance = Infinity;
+        for (var i = 0, list = projectedFace; i < list.length; i += 1) {
+            var p$1 = list[i];
+
+            closestDistance = Math.min(closestDistance, p$1.z);
+        }
+        return closestDistance;
+    }
+}
+function checkIntersection(projectedBase, projectedTop, projectedQueryGeometry) {
+    var closestDistance = Infinity;
+    if (polygonIntersectsMultiPolygon(projectedQueryGeometry, projectedTop)) {
+        closestDistance = getIntersectionDistance(projectedQueryGeometry, projectedTop[0]);
+    }
+    for (var r = 0; r < projectedTop.length; r++) {
+        var ringTop = projectedTop[r];
+        var ringBase = projectedBase[r];
+        for (var p = 0; p < ringTop.length - 1; p++) {
+            var topA = ringTop[p];
+            var topB = ringTop[p + 1];
+            var baseA = ringBase[p];
+            var baseB = ringBase[p + 1];
+            var face = [
+                topA,
+                topB,
+                baseB,
+                baseA,
+                topA
+            ];
+            if (polygonIntersectsPolygon(projectedQueryGeometry, face)) {
+                closestDistance = Math.min(closestDistance, getIntersectionDistance(projectedQueryGeometry, face));
+            }
+        }
+    }
+    return closestDistance === Infinity ? false : closestDistance;
+}
+function projectExtrusion(geometry, zBase, zTop, m) {
+    var projectedBase = [];
+    var projectedTop = [];
+    var baseXZ = m[8] * zBase;
+    var baseYZ = m[9] * zBase;
+    var baseZZ = m[10] * zBase;
+    var baseWZ = m[11] * zBase;
+    var topXZ = m[8] * zTop;
+    var topYZ = m[9] * zTop;
+    var topZZ = m[10] * zTop;
+    var topWZ = m[11] * zTop;
+    for (var i$1 = 0, list$1 = geometry; i$1 < list$1.length; i$1 += 1) {
+        var r = list$1[i$1];
+
+        var ringBase = [];
+        var ringTop = [];
+        for (var i = 0, list = r; i < list.length; i += 1) {
+            var p = list[i];
+
+            var x = p.x;
+            var y = p.y;
+            var sX = m[0] * x + m[4] * y + m[12];
+            var sY = m[1] * x + m[5] * y + m[13];
+            var sZ = m[2] * x + m[6] * y + m[14];
+            var sW = m[3] * x + m[7] * y + m[15];
+            var baseX = sX + baseXZ;
+            var baseY = sY + baseYZ;
+            var baseZ = sZ + baseZZ;
+            var baseW = sW + baseWZ;
+            var topX = sX + topXZ;
+            var topY = sY + topYZ;
+            var topZ = sZ + topZZ;
+            var topW = sW + topWZ;
+            var b = new pointGeometry(baseX / baseW, baseY / baseW);
+            b.z = baseZ / baseW;
+            ringBase.push(b);
+            var t = new pointGeometry(topX / topW, topY / topW);
+            t.z = topZ / topW;
+            ringTop.push(t);
+        }
+        projectedBase.push(ringBase);
+        projectedTop.push(ringTop);
+    }
+    return [
+        projectedBase,
+        projectedTop
+    ];
+}
+function projectQueryGeometry$1(queryGeometry, pixelPosMatrix, transform, z) {
+    var projectedQueryGeometry = [];
+    for (var i = 0, list = queryGeometry; i < list.length; i += 1) {
+        var p = list[i];
+
+        var v = [
+            p.x,
+            p.y,
+            z,
+            1
+        ];
+        transformMat4$1(v, v, pixelPosMatrix);
+        projectedQueryGeometry.push(new pointGeometry(v[0] / v[3], v[1] / v[3]));
+    }
+    return projectedQueryGeometry;
+}
 
 var lineLayoutAttributes = createLayout([
     {
@@ -12364,10 +15580,9 @@ var LineBucket = function LineBucket(options) {
     this.indexArray = new StructArrayLayout3ui6();
     this.programConfigurations = new ProgramConfigurationSet(members$3, options.layers, options.zoom);
     this.segments = new SegmentVector();
+    this.stateDependentLayerIds = this.layers.filter(function (l) { return l.isStateDependent(); }).map(function (l) { return l.id; });
 };
 LineBucket.prototype.populate = function populate (features, options) {
-        var this$1 = this;
-
     this.features = [];
     this.hasPattern = hasPattern('line', this.layers, options);
     for (var i = 0, list = features; i < list.length; i += 1) {
@@ -12376,7 +15591,7 @@ LineBucket.prototype.populate = function populate (features, options) {
             var index = ref.index;
             var sourceLayerIndex = ref.sourceLayerIndex;
 
-            if (!this$1.layers[0]._featureFilter(new EvaluationParameters(this$1.zoom), feature))
+            if (!this.layers[0]._featureFilter(new EvaluationParameters(this.zoom), feature))
             { continue; }
         var geometry = loadGeometry(feature);
         var patternFeature = {
@@ -12390,12 +15605,12 @@ LineBucket.prototype.populate = function populate (features, options) {
         if (typeof feature.id !== 'undefined') {
             patternFeature.id = feature.id;
         }
-        if (this$1.hasPattern) {
-            this$1.features.push(addPatternDependencies('line', this$1.layers, patternFeature, this$1.zoom, options));
+        if (this.hasPattern) {
+            this.features.push(addPatternDependencies('line', this.layers, patternFeature, this.zoom, options));
         } else {
-            this$1.addFeature(patternFeature, geometry, index, {});
+            this.addFeature(patternFeature, geometry, index, {});
         }
-        options.featureIndex.insert(feature, geometry, index, sourceLayerIndex, this$1.index);
+        options.featureIndex.insert(feature, geometry, index, sourceLayerIndex, this.index);
     }
 };
 LineBucket.prototype.update = function update (states, vtLayer, imagePositions) {
@@ -12404,13 +15619,11 @@ LineBucket.prototype.update = function update (states, vtLayer, imagePositions) 
     this.programConfigurations.updatePaintArrays(states, vtLayer, this.stateDependentLayers, imagePositions);
 };
 LineBucket.prototype.addFeatures = function addFeatures (options, imagePositions) {
-        var this$1 = this;
-
-    for (var i = 0, list = this$1.features; i < list.length; i += 1) {
+    for (var i = 0, list = this.features; i < list.length; i += 1) {
         var feature = list[i];
 
             var geometry = feature.geometry;
-        this$1.addFeature(feature, geometry, feature.index, imagePositions);
+        this.addFeature(feature, geometry, feature.index, imagePositions);
     }
 };
 LineBucket.prototype.isEmpty = function isEmpty () {
@@ -12436,8 +15649,6 @@ LineBucket.prototype.destroy = function destroy () {
     this.segments.destroy();
 };
 LineBucket.prototype.addFeature = function addFeature (feature, geometry, index, imagePositions) {
-        var this$1 = this;
-
     var layout = this.layers[0].layout;
     var join = layout.get('line-join').evaluate(feature, {});
     var cap = layout.get('line-cap');
@@ -12446,12 +15657,10 @@ LineBucket.prototype.addFeature = function addFeature (feature, geometry, index,
     for (var i = 0, list = geometry; i < list.length; i += 1) {
         var line = list[i];
 
-            this$1.addLine(line, feature, join, cap, miterLimit, roundLimit, index, imagePositions);
+            this.addLine(line, feature, join, cap, miterLimit, roundLimit, index, imagePositions);
     }
 };
 LineBucket.prototype.addLine = function addLine (vertices, feature, join, cap, miterLimit, roundLimit, index, imagePositions) {
-        var this$1 = this;
-
     var lineDistances = null;
     if (!!feature.properties && feature.properties.hasOwnProperty('mapbox_clip_start') && feature.properties.hasOwnProperty('mapbox_clip_end')) {
         lineDistances = {
@@ -12516,8 +15725,8 @@ LineBucket.prototype.addLine = function addLine (vertices, feature, join, cap, m
             var prevSegmentLength = currentVertex.dist(prevVertex);
             if (prevSegmentLength > 2 * sharpCornerOffset) {
                 var newPrevVertex = currentVertex.sub(currentVertex.sub(prevVertex)._mult(sharpCornerOffset / prevSegmentLength)._round());
-                this$1.distance += newPrevVertex.dist(prevVertex);
-                this$1.addCurrentVertex(newPrevVertex, this$1.distance, prevNormal.mult(1), 0, 0, false, segment, lineDistances);
+                this.distance += newPrevVertex.dist(prevVertex);
+                this.addCurrentVertex(newPrevVertex, this.distance, prevNormal.mult(1), 0, 0, false, segment, lineDistances);
                 prevVertex = newPrevVertex;
             }
         }
@@ -12540,10 +15749,10 @@ LineBucket.prototype.addLine = function addLine (vertices, feature, join, cap, m
                 { currentJoin = 'miter'; }
         }
         if (prevVertex)
-            { this$1.distance += currentVertex.dist(prevVertex); }
+            { this.distance += currentVertex.dist(prevVertex); }
         if (currentJoin === 'miter') {
             joinNormal._mult(miterLength);
-            this$1.addCurrentVertex(currentVertex, this$1.distance, joinNormal, 0, 0, false, segment, lineDistances);
+            this.addCurrentVertex(currentVertex, this.distance, joinNormal, 0, 0, false, segment, lineDistances);
         } else if (currentJoin === 'flipbevel') {
             if (miterLength > 100) {
                 joinNormal = nextNormal.clone().mult(-1);
@@ -12552,8 +15761,8 @@ LineBucket.prototype.addLine = function addLine (vertices, feature, join, cap, m
                 var bevelLength = miterLength * prevNormal.add(nextNormal).mag() / prevNormal.sub(nextNormal).mag();
                 joinNormal._perp()._mult(bevelLength * direction);
             }
-            this$1.addCurrentVertex(currentVertex, this$1.distance, joinNormal, 0, 0, false, segment, lineDistances);
-            this$1.addCurrentVertex(currentVertex, this$1.distance, joinNormal.mult(-1), 0, 0, false, segment, lineDistances);
+            this.addCurrentVertex(currentVertex, this.distance, joinNormal, 0, 0, false, segment, lineDistances);
+            this.addCurrentVertex(currentVertex, this.distance, joinNormal.mult(-1), 0, 0, false, segment, lineDistances);
         } else if (currentJoin === 'bevel' || currentJoin === 'fakeround') {
             var lineTurnsLeft = prevNormal.x * nextNormal.y - prevNormal.y * nextNormal.x > 0;
             var offset = -Math.sqrt(miterLength * miterLength - 1);
@@ -12565,56 +15774,56 @@ LineBucket.prototype.addLine = function addLine (vertices, feature, join, cap, m
                 offsetB = offset;
             }
             if (!startOfLine) {
-                this$1.addCurrentVertex(currentVertex, this$1.distance, prevNormal, offsetA, offsetB, false, segment, lineDistances);
+                this.addCurrentVertex(currentVertex, this.distance, prevNormal, offsetA, offsetB, false, segment, lineDistances);
             }
             if (currentJoin === 'fakeround') {
                 var n = Math.floor((0.5 - (cosHalfAngle - 0.5)) * 8);
                 var approxFractionalJoinNormal = (void 0);
                 for (var m = 0; m < n; m++) {
                     approxFractionalJoinNormal = nextNormal.mult((m + 1) / (n + 1))._add(prevNormal)._unit();
-                    this$1.addPieSliceVertex(currentVertex, this$1.distance, approxFractionalJoinNormal, lineTurnsLeft, segment, lineDistances);
+                    this.addPieSliceVertex(currentVertex, this.distance, approxFractionalJoinNormal, lineTurnsLeft, segment, lineDistances);
                 }
-                this$1.addPieSliceVertex(currentVertex, this$1.distance, joinNormal, lineTurnsLeft, segment, lineDistances);
+                this.addPieSliceVertex(currentVertex, this.distance, joinNormal, lineTurnsLeft, segment, lineDistances);
                 for (var k = n - 1; k >= 0; k--) {
                     approxFractionalJoinNormal = prevNormal.mult((k + 1) / (n + 1))._add(nextNormal)._unit();
-                    this$1.addPieSliceVertex(currentVertex, this$1.distance, approxFractionalJoinNormal, lineTurnsLeft, segment, lineDistances);
+                    this.addPieSliceVertex(currentVertex, this.distance, approxFractionalJoinNormal, lineTurnsLeft, segment, lineDistances);
                 }
             }
             if (nextVertex) {
-                this$1.addCurrentVertex(currentVertex, this$1.distance, nextNormal, -offsetA, -offsetB, false, segment, lineDistances);
+                this.addCurrentVertex(currentVertex, this.distance, nextNormal, -offsetA, -offsetB, false, segment, lineDistances);
             }
         } else if (currentJoin === 'butt') {
             if (!startOfLine) {
-                this$1.addCurrentVertex(currentVertex, this$1.distance, prevNormal, 0, 0, false, segment, lineDistances);
+                this.addCurrentVertex(currentVertex, this.distance, prevNormal, 0, 0, false, segment, lineDistances);
             }
             if (nextVertex) {
-                this$1.addCurrentVertex(currentVertex, this$1.distance, nextNormal, 0, 0, false, segment, lineDistances);
+                this.addCurrentVertex(currentVertex, this.distance, nextNormal, 0, 0, false, segment, lineDistances);
             }
         } else if (currentJoin === 'square') {
             if (!startOfLine) {
-                this$1.addCurrentVertex(currentVertex, this$1.distance, prevNormal, 1, 1, false, segment, lineDistances);
-                this$1.e1 = this$1.e2 = -1;
+                this.addCurrentVertex(currentVertex, this.distance, prevNormal, 1, 1, false, segment, lineDistances);
+                this.e1 = this.e2 = -1;
             }
             if (nextVertex) {
-                this$1.addCurrentVertex(currentVertex, this$1.distance, nextNormal, -1, -1, false, segment, lineDistances);
+                this.addCurrentVertex(currentVertex, this.distance, nextNormal, -1, -1, false, segment, lineDistances);
             }
         } else if (currentJoin === 'round') {
             if (!startOfLine) {
-                this$1.addCurrentVertex(currentVertex, this$1.distance, prevNormal, 0, 0, false, segment, lineDistances);
-                this$1.addCurrentVertex(currentVertex, this$1.distance, prevNormal, 1, 1, true, segment, lineDistances);
-                this$1.e1 = this$1.e2 = -1;
+                this.addCurrentVertex(currentVertex, this.distance, prevNormal, 0, 0, false, segment, lineDistances);
+                this.addCurrentVertex(currentVertex, this.distance, prevNormal, 1, 1, true, segment, lineDistances);
+                this.e1 = this.e2 = -1;
             }
             if (nextVertex) {
-                this$1.addCurrentVertex(currentVertex, this$1.distance, nextNormal, -1, -1, true, segment, lineDistances);
-                this$1.addCurrentVertex(currentVertex, this$1.distance, nextNormal, 0, 0, false, segment, lineDistances);
+                this.addCurrentVertex(currentVertex, this.distance, nextNormal, -1, -1, true, segment, lineDistances);
+                this.addCurrentVertex(currentVertex, this.distance, nextNormal, 0, 0, false, segment, lineDistances);
             }
         }
         if (isSharpCorner && i < len - 1) {
             var nextSegmentLength = currentVertex.dist(nextVertex);
             if (nextSegmentLength > 2 * sharpCornerOffset) {
                 var newCurrentVertex = currentVertex.add(nextVertex.sub(currentVertex)._mult(sharpCornerOffset / nextSegmentLength)._round());
-                this$1.distance += newCurrentVertex.dist(currentVertex);
-                this$1.addCurrentVertex(newCurrentVertex, this$1.distance, nextNormal.mult(1), 0, 0, false, segment, lineDistances);
+                this.distance += newCurrentVertex.dist(currentVertex);
+                this.addCurrentVertex(newCurrentVertex, this.distance, nextNormal.mult(1), 0, 0, false, segment, lineDistances);
                 currentVertex = newCurrentVertex;
             }
         }
@@ -12695,30 +15904,30 @@ register('LineBucket', LineBucket, {
 });
 
 var layout$4 = new Properties({
-    'line-cap': new DataConstantProperty(styleSpec['layout_line']['line-cap']),
-    'line-join': new DataDrivenProperty(styleSpec['layout_line']['line-join']),
-    'line-miter-limit': new DataConstantProperty(styleSpec['layout_line']['line-miter-limit']),
-    'line-round-limit': new DataConstantProperty(styleSpec['layout_line']['line-round-limit'])
+    'line-cap': new DataConstantProperty(spec['layout_line']['line-cap']),
+    'line-join': new DataDrivenProperty(spec['layout_line']['line-join']),
+    'line-miter-limit': new DataConstantProperty(spec['layout_line']['line-miter-limit']),
+    'line-round-limit': new DataConstantProperty(spec['layout_line']['line-round-limit'])
 });
 var paint$6 = new Properties({
-    'line-opacity': new DataDrivenProperty(styleSpec['paint_line']['line-opacity']),
-    'line-color': new DataDrivenProperty(styleSpec['paint_line']['line-color']),
-    'line-translate': new DataConstantProperty(styleSpec['paint_line']['line-translate']),
-    'line-translate-anchor': new DataConstantProperty(styleSpec['paint_line']['line-translate-anchor']),
-    'line-width': new DataDrivenProperty(styleSpec['paint_line']['line-width']),
-    'line-gap-width': new DataDrivenProperty(styleSpec['paint_line']['line-gap-width']),
-    'line-offset': new DataDrivenProperty(styleSpec['paint_line']['line-offset']),
-    'line-blur': new DataDrivenProperty(styleSpec['paint_line']['line-blur']),
-    'line-dasharray': new CrossFadedProperty(styleSpec['paint_line']['line-dasharray']),
-    'line-pattern': new CrossFadedDataDrivenProperty(styleSpec['paint_line']['line-pattern']),
-    'line-gradient': new ColorRampProperty(styleSpec['paint_line']['line-gradient'])
+    'line-opacity': new DataDrivenProperty(spec['paint_line']['line-opacity']),
+    'line-color': new DataDrivenProperty(spec['paint_line']['line-color']),
+    'line-translate': new DataConstantProperty(spec['paint_line']['line-translate']),
+    'line-translate-anchor': new DataConstantProperty(spec['paint_line']['line-translate-anchor']),
+    'line-width': new DataDrivenProperty(spec['paint_line']['line-width']),
+    'line-gap-width': new DataDrivenProperty(spec['paint_line']['line-gap-width']),
+    'line-offset': new DataDrivenProperty(spec['paint_line']['line-offset']),
+    'line-blur': new DataDrivenProperty(spec['paint_line']['line-blur']),
+    'line-dasharray': new CrossFadedProperty(spec['paint_line']['line-dasharray']),
+    'line-pattern': new CrossFadedDataDrivenProperty(spec['paint_line']['line-pattern']),
+    'line-gradient': new ColorRampProperty(spec['paint_line']['line-gradient'])
 });
 var properties$5 = {
     paint: paint$6,
     layout: layout$4
 };
 
-var LineFloorwidthProperty = (function (DataDrivenProperty$$1) {
+var LineFloorwidthProperty = /*@__PURE__*/(function (DataDrivenProperty$$1) {
     function LineFloorwidthProperty () {
         DataDrivenProperty$$1.apply(this, arguments);
     }
@@ -12745,7 +15954,7 @@ var LineFloorwidthProperty = (function (DataDrivenProperty$$1) {
 }(DataDrivenProperty));
 var lineFloorwidthProperty = new LineFloorwidthProperty(properties$5.paint.properties['line-width'].specification);
 lineFloorwidthProperty.useIntegerZoom = true;
-var LineStyleLayer = (function (StyleLayer$$1) {
+var LineStyleLayer = /*@__PURE__*/(function (StyleLayer$$1) {
     function LineStyleLayer(layer) {
         StyleLayer$$1.call(this, layer, properties$5);
     }
@@ -12783,7 +15992,7 @@ var LineStyleLayer = (function (StyleLayer$$1) {
         if (lineOffset) {
             geometry = offsetLine(geometry, lineOffset * pixelsToTileUnits);
         }
-        return multiPolygonIntersectsBufferedMultiLine(translatedPolygon, geometry, halfWidth);
+        return polygonIntersectsBufferedMultiLine(translatedPolygon, geometry, halfWidth);
     };
 
     return LineStyleLayer;
@@ -13236,7 +16445,7 @@ function verticalizePunctuation(input) {
     return output;
 }
 
-var Anchor = (function (Point) {
+var Anchor = /*@__PURE__*/(function (Point) {
     function Anchor(x, y, angle, segment) {
         Point.call(this, x, y);
         this.angle = angle;
@@ -13426,8 +16635,12 @@ var SymbolBucket = function SymbolBucket(options) {
     this.textSizeData = getSizeData(this.zoom, unevaluatedLayoutValues['text-size']);
     this.iconSizeData = getSizeData(this.zoom, unevaluatedLayoutValues['icon-size']);
     var layout = this.layers[0].layout;
-    var zOrderByViewportY = layout.get('symbol-z-order') === 'viewport-y';
+    var sortKey = layout.get('symbol-sort-key');
+    var zOrder = layout.get('symbol-z-order');
+    this.sortFeaturesByKey = zOrder !== 'viewport-y' && sortKey.constantOr(1) !== undefined;
+    var zOrderByViewportY = zOrder === 'viewport-y' || zOrder === 'auto' && !this.sortFeaturesByKey;
     this.sortFeaturesByY = zOrderByViewportY && (layout.get('text-allow-overlap') || layout.get('icon-allow-overlap') || layout.get('text-ignore-placement') || layout.get('icon-ignore-placement'));
+    this.stateDependentLayerIds = this.layers.filter(function (l) { return l.isStateDependent(); }).map(function (l) { return l.id; });
     this.sourceID = options.sourceID;
 };
 SymbolBucket.prototype.createArrays = function createArrays () {
@@ -13451,8 +16664,6 @@ SymbolBucket.prototype.calculateGlyphDependencies = function calculateGlyphDepen
     }
 };
 SymbolBucket.prototype.populate = function populate (features, options) {
-        var this$1 = this;
-
     var layer = this.layers[0];
     var layout = layer.layout;
     var textFont = layout.get('text-font');
@@ -13460,6 +16671,7 @@ SymbolBucket.prototype.populate = function populate (features, options) {
     var iconImage = layout.get('icon-image');
     var hasText = (textField.value.kind !== 'constant' || textField.value.value.toString().length > 0) && (textFont.value.kind !== 'constant' || textFont.value.value.length > 0);
     var hasIcon = iconImage.value.kind !== 'constant' || iconImage.value.value && iconImage.value.value.length > 0;
+    var symbolSortKey = layout.get('symbol-sort-key');
     this.features = [];
     if (!hasText && !hasIcon) {
         return;
@@ -13488,6 +16700,7 @@ SymbolBucket.prototype.populate = function populate (features, options) {
         if (!text && !icon) {
             continue;
         }
+        var sortKey = this.sortFeaturesByKey ? symbolSortKey.evaluate(feature, {}) : undefined;
         var symbolFeature = {
             text: text,
             icon: icon,
@@ -13495,12 +16708,13 @@ SymbolBucket.prototype.populate = function populate (features, options) {
             sourceLayerIndex: sourceLayerIndex,
             geometry: loadGeometry(feature),
             properties: feature.properties,
-            type: vectorTileFeatureTypes$1[feature.type]
+            type: vectorTileFeatureTypes$1[feature.type],
+            sortKey: sortKey
         };
         if (typeof feature.id !== 'undefined') {
             symbolFeature.id = feature.id;
         }
-        this$1.features.push(symbolFeature);
+        this.features.push(symbolFeature);
         if (icon) {
             icons[icon] = true;
         }
@@ -13513,12 +16727,17 @@ SymbolBucket.prototype.populate = function populate (features, options) {
                     var doesAllowVerticalWritingMode = allowsVerticalWritingMode(text.toString());
                 var sectionFont = section.fontStack || fontStack;
                 var sectionStack = stacks[sectionFont] = stacks[sectionFont] || {};
-                this$1.calculateGlyphDependencies(section.text, sectionStack, textAlongLine, doesAllowVerticalWritingMode);
+                this.calculateGlyphDependencies(section.text, sectionStack, textAlongLine, doesAllowVerticalWritingMode);
             }
         }
     }
     if (layout.get('symbol-placement') === 'line') {
         this.features = mergeLines(this.features);
+    }
+    if (this.sortFeaturesByKey) {
+        this.features.sort(function (a, b) {
+            return a.sortKey - b.sortKey;
+        });
     }
 };
 SymbolBucket.prototype.update = function update (states, vtLayer, imagePositions) {
@@ -13549,8 +16768,6 @@ SymbolBucket.prototype.destroy = function destroy () {
     this.collisionCircle.destroy();
 };
 SymbolBucket.prototype.addToLineVertexArray = function addToLineVertexArray (anchor, line) {
-        var this$1 = this;
-
     var lineStartIndex = this.lineVertexArray.length;
     if (anchor.segment !== undefined) {
         var sumForwardLength = anchor.dist(line[anchor.segment + 1]);
@@ -13578,7 +16795,7 @@ SymbolBucket.prototype.addToLineVertexArray = function addToLineVertexArray (anc
         }
         for (var i$2 = 0; i$2 < line.length; i$2++) {
             var vertex = vertices[i$2];
-            this$1.lineVertexArray.emplaceBack(vertex.x, vertex.y, vertex.tileUnitDistanceFromAnchor);
+            this.lineVertexArray.emplaceBack(vertex.x, vertex.y, vertex.tileUnitDistanceFromAnchor);
         }
     }
     return {
@@ -13587,12 +16804,10 @@ SymbolBucket.prototype.addToLineVertexArray = function addToLineVertexArray (anc
     };
 };
 SymbolBucket.prototype.addSymbols = function addSymbols (arrays, quads, sizeVertex, lineOffset, alongLine, feature, writingMode, labelAnchor, lineStartIndex, lineLength) {
-        var this$1 = this;
-
     var indexArray = arrays.indexArray;
     var layoutVertexArray = arrays.layoutVertexArray;
     var dynamicLayoutVertexArray = arrays.dynamicLayoutVertexArray;
-    var segment = arrays.segments.prepareSegment(4 * quads.length, arrays.layoutVertexArray, arrays.indexArray);
+    var segment = arrays.segments.prepareSegment(4 * quads.length, arrays.layoutVertexArray, arrays.indexArray, feature.sortKey);
     var glyphOffsetArrayStart = this.glyphOffsetArray.length;
     var vertexStartIndex = segment.vertexLength;
     for (var i = 0, list = quads; i < list.length; i += 1) {
@@ -13610,7 +16825,7 @@ SymbolBucket.prototype.addSymbols = function addSymbols (arrays, quads, sizeVert
         indexArray.emplaceBack(index + 1, index + 2, index + 3);
         segment.vertexLength += 4;
         segment.primitiveLength += 2;
-        this$1.glyphOffsetArray.emplaceBack(symbol.glyphOffset[0]);
+        this.glyphOffsetArray.emplaceBack(symbol.glyphOffset[0]);
     }
     arrays.placedSymbolArray.emplaceBack(labelAnchor.x, labelAnchor.y, glyphOffsetArrayStart, this.glyphOffsetArray.length - glyphOffsetArrayStart, vertexStartIndex, lineStartIndex, lineLength, labelAnchor.segment, sizeVertex ? sizeVertex[0] : 0, sizeVertex ? sizeVertex[1] : 0, lineOffset[0], lineOffset[1], writingMode, false);
     arrays.programConfigurations.populatePaintArrays(arrays.layoutVertexArray.length, feature, feature.index, {});
@@ -13646,25 +16861,21 @@ SymbolBucket.prototype.addCollisionDebugVertices = function addCollisionDebugVer
     }
 };
 SymbolBucket.prototype.addDebugCollisionBoxes = function addDebugCollisionBoxes (startIndex, endIndex, symbolInstance$$1) {
-        var this$1 = this;
-
     for (var b = startIndex; b < endIndex; b++) {
-        var box = this$1.collisionBoxArray.get(b);
+        var box = this.collisionBoxArray.get(b);
         var x1 = box.x1;
         var y1 = box.y1;
         var x2 = box.x2;
         var y2 = box.y2;
         var isCircle = box.radius > 0;
-        this$1.addCollisionDebugVertices(x1, y1, x2, y2, isCircle ? this$1.collisionCircle : this$1.collisionBox, box.anchorPoint, symbolInstance$$1, isCircle);
+        this.addCollisionDebugVertices(x1, y1, x2, y2, isCircle ? this.collisionCircle : this.collisionBox, box.anchorPoint, symbolInstance$$1, isCircle);
     }
 };
 SymbolBucket.prototype.generateCollisionDebugBuffers = function generateCollisionDebugBuffers () {
-        var this$1 = this;
-
     for (var i = 0; i < this.symbolInstances.length; i++) {
-        var symbolInstance$$1 = this$1.symbolInstances.get(i);
-        this$1.addDebugCollisionBoxes(symbolInstance$$1.textBoxStartIndex, symbolInstance$$1.textBoxEndIndex, symbolInstance$$1);
-        this$1.addDebugCollisionBoxes(symbolInstance$$1.iconBoxStartIndex, symbolInstance$$1.iconBoxEndIndex, symbolInstance$$1);
+        var symbolInstance$$1 = this.symbolInstances.get(i);
+        this.addDebugCollisionBoxes(symbolInstance$$1.textBoxStartIndex, symbolInstance$$1.textBoxEndIndex, symbolInstance$$1);
+        this.addDebugCollisionBoxes(symbolInstance$$1.iconBoxStartIndex, symbolInstance$$1.iconBoxEndIndex, symbolInstance$$1);
     }
 };
 SymbolBucket.prototype._deserializeCollisionBoxesForSymbol = function _deserializeCollisionBoxesForSymbol (collisionBoxArray, textStartIndex, textEndIndex, iconStartIndex, iconEndIndex) {
@@ -13709,12 +16920,10 @@ SymbolBucket.prototype._deserializeCollisionBoxesForSymbol = function _deseriali
     return collisionArrays;
 };
 SymbolBucket.prototype.deserializeCollisionBoxes = function deserializeCollisionBoxes (collisionBoxArray) {
-        var this$1 = this;
-
     this.collisionArrays = [];
     for (var i = 0; i < this.symbolInstances.length; i++) {
-        var symbolInstance$$1 = this$1.symbolInstances.get(i);
-        this$1.collisionArrays.push(this$1._deserializeCollisionBoxesForSymbol(collisionBoxArray, symbolInstance$$1.textBoxStartIndex, symbolInstance$$1.textBoxEndIndex, symbolInstance$$1.iconBoxStartIndex, symbolInstance$$1.iconBoxEndIndex));
+        var symbolInstance$$1 = this.symbolInstances.get(i);
+        this.collisionArrays.push(this._deserializeCollisionBoxesForSymbol(collisionBoxArray, symbolInstance$$1.textBoxStartIndex, symbolInstance$$1.textBoxEndIndex, symbolInstance$$1.iconBoxStartIndex, symbolInstance$$1.iconBoxEndIndex));
     }
 };
 SymbolBucket.prototype.hasTextData = function hasTextData () {
@@ -13730,18 +16939,14 @@ SymbolBucket.prototype.hasCollisionCircleData = function hasCollisionCircleData 
     return this.collisionCircle.segments.get().length > 0;
 };
 SymbolBucket.prototype.addIndicesForPlacedTextSymbol = function addIndicesForPlacedTextSymbol (placedTextSymbolIndex) {
-        var this$1 = this;
-
     var placedSymbol = this.text.placedSymbolArray.get(placedTextSymbolIndex);
     var endIndex = placedSymbol.vertexStartIndex + placedSymbol.numGlyphs * 4;
     for (var vertexIndex = placedSymbol.vertexStartIndex; vertexIndex < endIndex; vertexIndex += 4) {
-        this$1.text.indexArray.emplaceBack(vertexIndex, vertexIndex + 1, vertexIndex + 2);
-        this$1.text.indexArray.emplaceBack(vertexIndex + 1, vertexIndex + 2, vertexIndex + 3);
+        this.text.indexArray.emplaceBack(vertexIndex, vertexIndex + 1, vertexIndex + 2);
+        this.text.indexArray.emplaceBack(vertexIndex + 1, vertexIndex + 2, vertexIndex + 3);
     }
 };
 SymbolBucket.prototype.sortFeatures = function sortFeatures (angle) {
-        var this$1 = this;
-
     if (!this.sortFeaturesByY)
         { return; }
     if (this.sortedAngle === angle)
@@ -13757,7 +16962,7 @@ SymbolBucket.prototype.sortFeatures = function sortFeatures (angle) {
     var rotatedYs = [];
     var featureIndexes = [];
     for (var i$1 = 0; i$1 < this.symbolInstances.length; i$1++) {
-        var symbolInstance$$1 = this$1.symbolInstances.get(i$1);
+        var symbolInstance$$1 = this.symbolInstances.get(i$1);
         rotatedYs.push(Math.round(sin * symbolInstance$$1.anchorX + cos * symbolInstance$$1.anchorY) | 0);
         featureIndexes.push(symbolInstance$$1.featureIndex);
     }
@@ -13770,19 +16975,19 @@ SymbolBucket.prototype.sortFeatures = function sortFeatures (angle) {
     for (var i$3 = 0, list = symbolInstanceIndexes; i$3 < list.length; i$3 += 1) {
         var i$2 = list[i$3];
 
-            var symbolInstance$1 = this$1.symbolInstances.get(i$2);
-        this$1.featureSortOrder.push(symbolInstance$1.featureIndex);
+            var symbolInstance$1 = this.symbolInstances.get(i$2);
+        this.featureSortOrder.push(symbolInstance$1.featureIndex);
         if (symbolInstance$1.horizontalPlacedTextSymbolIndex >= 0) {
-            this$1.addIndicesForPlacedTextSymbol(symbolInstance$1.horizontalPlacedTextSymbolIndex);
+            this.addIndicesForPlacedTextSymbol(symbolInstance$1.horizontalPlacedTextSymbolIndex);
         }
         if (symbolInstance$1.verticalPlacedTextSymbolIndex >= 0) {
-            this$1.addIndicesForPlacedTextSymbol(symbolInstance$1.verticalPlacedTextSymbolIndex);
+            this.addIndicesForPlacedTextSymbol(symbolInstance$1.verticalPlacedTextSymbolIndex);
         }
-        var placedIcon = this$1.icon.placedSymbolArray.get(i$2);
+        var placedIcon = this.icon.placedSymbolArray.get(i$2);
         if (placedIcon.numGlyphs) {
             var vertexIndex = placedIcon.vertexStartIndex;
-            this$1.icon.indexArray.emplaceBack(vertexIndex, vertexIndex + 1, vertexIndex + 2);
-            this$1.icon.indexArray.emplaceBack(vertexIndex + 1, vertexIndex + 2, vertexIndex + 3);
+            this.icon.indexArray.emplaceBack(vertexIndex, vertexIndex + 1, vertexIndex + 2);
+            this.icon.indexArray.emplaceBack(vertexIndex + 1, vertexIndex + 2, vertexIndex + 3);
         }
     }
     if (this.text.indexBuffer)
@@ -13808,66 +17013,67 @@ function resolveTokens(properties, text) {
 }
 
 var layout$5 = new Properties({
-    'symbol-placement': new DataConstantProperty(styleSpec['layout_symbol']['symbol-placement']),
-    'symbol-spacing': new DataConstantProperty(styleSpec['layout_symbol']['symbol-spacing']),
-    'symbol-avoid-edges': new DataConstantProperty(styleSpec['layout_symbol']['symbol-avoid-edges']),
-    'symbol-z-order': new DataConstantProperty(styleSpec['layout_symbol']['symbol-z-order']),
-    'icon-allow-overlap': new DataConstantProperty(styleSpec['layout_symbol']['icon-allow-overlap']),
-    'icon-ignore-placement': new DataConstantProperty(styleSpec['layout_symbol']['icon-ignore-placement']),
-    'icon-optional': new DataConstantProperty(styleSpec['layout_symbol']['icon-optional']),
-    'icon-rotation-alignment': new DataConstantProperty(styleSpec['layout_symbol']['icon-rotation-alignment']),
-    'icon-size': new DataDrivenProperty(styleSpec['layout_symbol']['icon-size']),
-    'icon-text-fit': new DataConstantProperty(styleSpec['layout_symbol']['icon-text-fit']),
-    'icon-text-fit-padding': new DataConstantProperty(styleSpec['layout_symbol']['icon-text-fit-padding']),
-    'icon-image': new DataDrivenProperty(styleSpec['layout_symbol']['icon-image']),
-    'icon-rotate': new DataDrivenProperty(styleSpec['layout_symbol']['icon-rotate']),
-    'icon-padding': new DataConstantProperty(styleSpec['layout_symbol']['icon-padding']),
-    'icon-keep-upright': new DataConstantProperty(styleSpec['layout_symbol']['icon-keep-upright']),
-    'icon-offset': new DataDrivenProperty(styleSpec['layout_symbol']['icon-offset']),
-    'icon-anchor': new DataDrivenProperty(styleSpec['layout_symbol']['icon-anchor']),
-    'icon-pitch-alignment': new DataConstantProperty(styleSpec['layout_symbol']['icon-pitch-alignment']),
-    'text-pitch-alignment': new DataConstantProperty(styleSpec['layout_symbol']['text-pitch-alignment']),
-    'text-rotation-alignment': new DataConstantProperty(styleSpec['layout_symbol']['text-rotation-alignment']),
-    'text-field': new DataDrivenProperty(styleSpec['layout_symbol']['text-field']),
-    'text-font': new DataDrivenProperty(styleSpec['layout_symbol']['text-font']),
-    'text-size': new DataDrivenProperty(styleSpec['layout_symbol']['text-size']),
-    'text-max-width': new DataDrivenProperty(styleSpec['layout_symbol']['text-max-width']),
-    'text-line-height': new DataConstantProperty(styleSpec['layout_symbol']['text-line-height']),
-    'text-letter-spacing': new DataDrivenProperty(styleSpec['layout_symbol']['text-letter-spacing']),
-    'text-justify': new DataDrivenProperty(styleSpec['layout_symbol']['text-justify']),
-    'text-anchor': new DataDrivenProperty(styleSpec['layout_symbol']['text-anchor']),
-    'text-max-angle': new DataConstantProperty(styleSpec['layout_symbol']['text-max-angle']),
-    'text-rotate': new DataDrivenProperty(styleSpec['layout_symbol']['text-rotate']),
-    'text-padding': new DataConstantProperty(styleSpec['layout_symbol']['text-padding']),
-    'text-keep-upright': new DataConstantProperty(styleSpec['layout_symbol']['text-keep-upright']),
-    'text-transform': new DataDrivenProperty(styleSpec['layout_symbol']['text-transform']),
-    'text-offset': new DataDrivenProperty(styleSpec['layout_symbol']['text-offset']),
-    'text-allow-overlap': new DataConstantProperty(styleSpec['layout_symbol']['text-allow-overlap']),
-    'text-ignore-placement': new DataConstantProperty(styleSpec['layout_symbol']['text-ignore-placement']),
-    'text-optional': new DataConstantProperty(styleSpec['layout_symbol']['text-optional'])
+    'symbol-placement': new DataConstantProperty(spec['layout_symbol']['symbol-placement']),
+    'symbol-spacing': new DataConstantProperty(spec['layout_symbol']['symbol-spacing']),
+    'symbol-avoid-edges': new DataConstantProperty(spec['layout_symbol']['symbol-avoid-edges']),
+    'symbol-sort-key': new DataDrivenProperty(spec['layout_symbol']['symbol-sort-key']),
+    'symbol-z-order': new DataConstantProperty(spec['layout_symbol']['symbol-z-order']),
+    'icon-allow-overlap': new DataConstantProperty(spec['layout_symbol']['icon-allow-overlap']),
+    'icon-ignore-placement': new DataConstantProperty(spec['layout_symbol']['icon-ignore-placement']),
+    'icon-optional': new DataConstantProperty(spec['layout_symbol']['icon-optional']),
+    'icon-rotation-alignment': new DataConstantProperty(spec['layout_symbol']['icon-rotation-alignment']),
+    'icon-size': new DataDrivenProperty(spec['layout_symbol']['icon-size']),
+    'icon-text-fit': new DataConstantProperty(spec['layout_symbol']['icon-text-fit']),
+    'icon-text-fit-padding': new DataConstantProperty(spec['layout_symbol']['icon-text-fit-padding']),
+    'icon-image': new DataDrivenProperty(spec['layout_symbol']['icon-image']),
+    'icon-rotate': new DataDrivenProperty(spec['layout_symbol']['icon-rotate']),
+    'icon-padding': new DataConstantProperty(spec['layout_symbol']['icon-padding']),
+    'icon-keep-upright': new DataConstantProperty(spec['layout_symbol']['icon-keep-upright']),
+    'icon-offset': new DataDrivenProperty(spec['layout_symbol']['icon-offset']),
+    'icon-anchor': new DataDrivenProperty(spec['layout_symbol']['icon-anchor']),
+    'icon-pitch-alignment': new DataConstantProperty(spec['layout_symbol']['icon-pitch-alignment']),
+    'text-pitch-alignment': new DataConstantProperty(spec['layout_symbol']['text-pitch-alignment']),
+    'text-rotation-alignment': new DataConstantProperty(spec['layout_symbol']['text-rotation-alignment']),
+    'text-field': new DataDrivenProperty(spec['layout_symbol']['text-field']),
+    'text-font': new DataDrivenProperty(spec['layout_symbol']['text-font']),
+    'text-size': new DataDrivenProperty(spec['layout_symbol']['text-size']),
+    'text-max-width': new DataDrivenProperty(spec['layout_symbol']['text-max-width']),
+    'text-line-height': new DataConstantProperty(spec['layout_symbol']['text-line-height']),
+    'text-letter-spacing': new DataDrivenProperty(spec['layout_symbol']['text-letter-spacing']),
+    'text-justify': new DataDrivenProperty(spec['layout_symbol']['text-justify']),
+    'text-anchor': new DataDrivenProperty(spec['layout_symbol']['text-anchor']),
+    'text-max-angle': new DataConstantProperty(spec['layout_symbol']['text-max-angle']),
+    'text-rotate': new DataDrivenProperty(spec['layout_symbol']['text-rotate']),
+    'text-padding': new DataConstantProperty(spec['layout_symbol']['text-padding']),
+    'text-keep-upright': new DataConstantProperty(spec['layout_symbol']['text-keep-upright']),
+    'text-transform': new DataDrivenProperty(spec['layout_symbol']['text-transform']),
+    'text-offset': new DataDrivenProperty(spec['layout_symbol']['text-offset']),
+    'text-allow-overlap': new DataConstantProperty(spec['layout_symbol']['text-allow-overlap']),
+    'text-ignore-placement': new DataConstantProperty(spec['layout_symbol']['text-ignore-placement']),
+    'text-optional': new DataConstantProperty(spec['layout_symbol']['text-optional'])
 });
 var paint$7 = new Properties({
-    'icon-opacity': new DataDrivenProperty(styleSpec['paint_symbol']['icon-opacity']),
-    'icon-color': new DataDrivenProperty(styleSpec['paint_symbol']['icon-color']),
-    'icon-halo-color': new DataDrivenProperty(styleSpec['paint_symbol']['icon-halo-color']),
-    'icon-halo-width': new DataDrivenProperty(styleSpec['paint_symbol']['icon-halo-width']),
-    'icon-halo-blur': new DataDrivenProperty(styleSpec['paint_symbol']['icon-halo-blur']),
-    'icon-translate': new DataConstantProperty(styleSpec['paint_symbol']['icon-translate']),
-    'icon-translate-anchor': new DataConstantProperty(styleSpec['paint_symbol']['icon-translate-anchor']),
-    'text-opacity': new DataDrivenProperty(styleSpec['paint_symbol']['text-opacity']),
-    'text-color': new DataDrivenProperty(styleSpec['paint_symbol']['text-color']),
-    'text-halo-color': new DataDrivenProperty(styleSpec['paint_symbol']['text-halo-color']),
-    'text-halo-width': new DataDrivenProperty(styleSpec['paint_symbol']['text-halo-width']),
-    'text-halo-blur': new DataDrivenProperty(styleSpec['paint_symbol']['text-halo-blur']),
-    'text-translate': new DataConstantProperty(styleSpec['paint_symbol']['text-translate']),
-    'text-translate-anchor': new DataConstantProperty(styleSpec['paint_symbol']['text-translate-anchor'])
+    'icon-opacity': new DataDrivenProperty(spec['paint_symbol']['icon-opacity']),
+    'icon-color': new DataDrivenProperty(spec['paint_symbol']['icon-color']),
+    'icon-halo-color': new DataDrivenProperty(spec['paint_symbol']['icon-halo-color']),
+    'icon-halo-width': new DataDrivenProperty(spec['paint_symbol']['icon-halo-width']),
+    'icon-halo-blur': new DataDrivenProperty(spec['paint_symbol']['icon-halo-blur']),
+    'icon-translate': new DataConstantProperty(spec['paint_symbol']['icon-translate']),
+    'icon-translate-anchor': new DataConstantProperty(spec['paint_symbol']['icon-translate-anchor']),
+    'text-opacity': new DataDrivenProperty(spec['paint_symbol']['text-opacity']),
+    'text-color': new DataDrivenProperty(spec['paint_symbol']['text-color']),
+    'text-halo-color': new DataDrivenProperty(spec['paint_symbol']['text-halo-color']),
+    'text-halo-width': new DataDrivenProperty(spec['paint_symbol']['text-halo-width']),
+    'text-halo-blur': new DataDrivenProperty(spec['paint_symbol']['text-halo-blur']),
+    'text-translate': new DataConstantProperty(spec['paint_symbol']['text-translate']),
+    'text-translate-anchor': new DataConstantProperty(spec['paint_symbol']['text-translate-anchor'])
 });
 var properties$6 = {
     paint: paint$7,
     layout: layout$5
 };
 
-var SymbolStyleLayer = (function (StyleLayer$$1) {
+var SymbolStyleLayer = /*@__PURE__*/(function (StyleLayer$$1) {
     function SymbolStyleLayer(layer) {
         StyleLayer$$1.call(this, layer, properties$6);
     }
@@ -13920,13 +17126,13 @@ var SymbolStyleLayer = (function (StyleLayer$$1) {
 }(StyleLayer));
 
 var paint$8 = new Properties({
-    'background-color': new DataConstantProperty(styleSpec['paint_background']['background-color']),
-    'background-pattern': new CrossFadedProperty(styleSpec['paint_background']['background-pattern']),
-    'background-opacity': new DataConstantProperty(styleSpec['paint_background']['background-opacity'])
+    'background-color': new DataConstantProperty(spec['paint_background']['background-color']),
+    'background-pattern': new CrossFadedProperty(spec['paint_background']['background-pattern']),
+    'background-opacity': new DataConstantProperty(spec['paint_background']['background-opacity'])
 });
 var properties$7 = { paint: paint$8 };
 
-var BackgroundStyleLayer = (function (StyleLayer$$1) {
+var BackgroundStyleLayer = /*@__PURE__*/(function (StyleLayer$$1) {
     function BackgroundStyleLayer(layer) {
         StyleLayer$$1.call(this, layer, properties$7);
     }
@@ -13939,18 +17145,18 @@ var BackgroundStyleLayer = (function (StyleLayer$$1) {
 }(StyleLayer));
 
 var paint$9 = new Properties({
-    'raster-opacity': new DataConstantProperty(styleSpec['paint_raster']['raster-opacity']),
-    'raster-hue-rotate': new DataConstantProperty(styleSpec['paint_raster']['raster-hue-rotate']),
-    'raster-brightness-min': new DataConstantProperty(styleSpec['paint_raster']['raster-brightness-min']),
-    'raster-brightness-max': new DataConstantProperty(styleSpec['paint_raster']['raster-brightness-max']),
-    'raster-saturation': new DataConstantProperty(styleSpec['paint_raster']['raster-saturation']),
-    'raster-contrast': new DataConstantProperty(styleSpec['paint_raster']['raster-contrast']),
-    'raster-resampling': new DataConstantProperty(styleSpec['paint_raster']['raster-resampling']),
-    'raster-fade-duration': new DataConstantProperty(styleSpec['paint_raster']['raster-fade-duration'])
+    'raster-opacity': new DataConstantProperty(spec['paint_raster']['raster-opacity']),
+    'raster-hue-rotate': new DataConstantProperty(spec['paint_raster']['raster-hue-rotate']),
+    'raster-brightness-min': new DataConstantProperty(spec['paint_raster']['raster-brightness-min']),
+    'raster-brightness-max': new DataConstantProperty(spec['paint_raster']['raster-brightness-max']),
+    'raster-saturation': new DataConstantProperty(spec['paint_raster']['raster-saturation']),
+    'raster-contrast': new DataConstantProperty(spec['paint_raster']['raster-contrast']),
+    'raster-resampling': new DataConstantProperty(spec['paint_raster']['raster-resampling']),
+    'raster-fade-duration': new DataConstantProperty(spec['paint_raster']['raster-fade-duration'])
 });
 var properties$8 = { paint: paint$9 };
 
-var RasterStyleLayer = (function (StyleLayer$$1) {
+var RasterStyleLayer = /*@__PURE__*/(function (StyleLayer$$1) {
     function RasterStyleLayer(layer) {
         StyleLayer$$1.call(this, layer, properties$8);
     }
@@ -13976,7 +17182,7 @@ function validateCustomStyleLayer(layerObject) {
     }
     return errors;
 }
-var CustomStyleLayer = (function (StyleLayer$$1) {
+var CustomStyleLayer = /*@__PURE__*/(function (StyleLayer$$1) {
     function CustomStyleLayer(implementation) {
         StyleLayer$$1.call(this, implementation, {});
         this.implementation = implementation;
@@ -14440,15 +17646,13 @@ Pbf.prototype = {
         this.buf = null;
     },
     readFields: function (readField, result, end) {
-        var this$1 = this;
-
         end = end || this.length;
         while (this.pos < end) {
-            var val = this$1.readVarint(), tag = val >> 3, startPos = this$1.pos;
-            this$1.type = val & 7;
-            readField(tag, result, this$1);
-            if (this$1.pos === startPos)
-                { this$1.skip(val); }
+            var val = this.readVarint(), tag = val >> 3, startPos = this.pos;
+            this.type = val & 7;
+            readField(tag, result, this);
+            if (this.pos === startPos)
+                { this.skip(val); }
         }
         return result;
     },
@@ -14528,84 +17732,66 @@ Pbf.prototype = {
         return buffer;
     },
     readPackedVarint: function (arr, isSigned) {
-        var this$1 = this;
-
         var end = readPackedEnd(this);
         arr = arr || [];
         while (this.pos < end)
-            { arr.push(this$1.readVarint(isSigned)); }
+            { arr.push(this.readVarint(isSigned)); }
         return arr;
     },
     readPackedSVarint: function (arr) {
-        var this$1 = this;
-
         var end = readPackedEnd(this);
         arr = arr || [];
         while (this.pos < end)
-            { arr.push(this$1.readSVarint()); }
+            { arr.push(this.readSVarint()); }
         return arr;
     },
     readPackedBoolean: function (arr) {
-        var this$1 = this;
-
         var end = readPackedEnd(this);
         arr = arr || [];
         while (this.pos < end)
-            { arr.push(this$1.readBoolean()); }
+            { arr.push(this.readBoolean()); }
         return arr;
     },
     readPackedFloat: function (arr) {
-        var this$1 = this;
-
         var end = readPackedEnd(this);
         arr = arr || [];
         while (this.pos < end)
-            { arr.push(this$1.readFloat()); }
+            { arr.push(this.readFloat()); }
         return arr;
     },
     readPackedDouble: function (arr) {
-        var this$1 = this;
-
         var end = readPackedEnd(this);
         arr = arr || [];
         while (this.pos < end)
-            { arr.push(this$1.readDouble()); }
+            { arr.push(this.readDouble()); }
         return arr;
     },
     readPackedFixed32: function (arr) {
-        var this$1 = this;
-
         var end = readPackedEnd(this);
         arr = arr || [];
         while (this.pos < end)
-            { arr.push(this$1.readFixed32()); }
+            { arr.push(this.readFixed32()); }
         return arr;
     },
     readPackedSFixed32: function (arr) {
-        var this$1 = this;
-
         var end = readPackedEnd(this);
         arr = arr || [];
         while (this.pos < end)
-            { arr.push(this$1.readSFixed32()); }
+            { arr.push(this.readSFixed32()); }
         return arr;
     },
     readPackedFixed64: function (arr) {
-        var this$1 = this;
-
         var end = readPackedEnd(this);
         arr = arr || [];
         while (this.pos < end)
-            { arr.push(this$1.readFixed64()); }
+            { arr.push(this.readFixed64()); }
         return arr;
     },
     readPackedSFixed64: function (arr) {
-        var this$1 = this;
-
         var end = readPackedEnd(this);
         arr = arr || [];
         while (this.pos < end)
-            { arr.push(this$1.readSFixed64()); }
+            { arr.push(this.readSFixed64()); }
         return arr;
     },
     skip: function (val) {
@@ -14711,13 +17897,11 @@ Pbf.prototype = {
         this.pos += 8;
     },
     writeBytes: function (buffer) {
-        var this$1 = this;
-
         var len = buffer.length;
         this.writeVarint(len);
         this.realloc(len);
         for (var i = 0; i < len; i++)
-            { this$1.buf[this$1.pos++] = buffer[i]; }
+            { this.buf[this.pos++] = buffer[i]; }
     },
     writeRawMessage: function (fn, obj) {
         this.pos++;
@@ -15116,6 +18300,8 @@ var Actor = function Actor(target, parent, mapId) {
     this.target.addEventListener('message', this.receive, false);
 };
 Actor.prototype.send = function send (type, data, callback, targetMapId) {
+        var this$1 = this;
+
     var id = callback ? ((this.mapId) + ":" + (this.callbackID++)) : null;
     if (callback)
         { this.callbacks[id] = callback; }
@@ -15127,6 +18313,16 @@ Actor.prototype.send = function send (type, data, callback, targetMapId) {
         id: String(id),
         data: serialize(data, buffers)
     }, buffers);
+    if (callback) {
+        return {
+            cancel: function () { return this$1.target.postMessage({
+                targetMapId: targetMapId,
+                sourceMapId: this$1.mapId,
+                type: '<cancel>',
+                id: String(id)
+            }); }
+        };
+    }
 };
 Actor.prototype.receive = function receive (message) {
         var this$1 = this;
@@ -15136,6 +18332,7 @@ Actor.prototype.receive = function receive (message) {
     if (data.targetMapId && this.mapId !== data.targetMapId)
         { return; }
     var done = function (err, data) {
+        delete this$1.callbacks[id];
         var buffers = [];
         this$1.target.postMessage({
             sourceMapId: this$1.mapId,
@@ -15145,7 +18342,7 @@ Actor.prototype.receive = function receive (message) {
             data: serialize(data, buffers)
         }, buffers);
     };
-    if (data.type === '<response>') {
+    if (data.type === '<response>' || data.type === '<cancel>') {
         callback = this.callbacks[data.id];
         delete this.callbacks[data.id];
         if (callback && data.error) {
@@ -15154,7 +18351,11 @@ Actor.prototype.receive = function receive (message) {
             callback(null, deserialize(data.data));
         }
     } else if (typeof data.id !== 'undefined' && this.parent[data.type]) {
-        this.parent[data.type](data.sourceMapId, deserialize(data.data), done);
+        this.callbacks[data.id] = null;
+        var cancelable = this.parent[data.type](data.sourceMapId, deserialize(data.data), done);
+        if (cancelable && this.callbacks[data.id] === null) {
+            this.callbacks[data.id] = cancelable;
+        }
     } else if (typeof data.id !== 'undefined' && this.parent.getWorkerSource) {
         var keys = data.type.split('.');
         var params = deserialize(data.data);
@@ -15326,6 +18527,8 @@ LngLat.prototype.toString = function toString () {
     return ("LngLat(" + (this.lng) + ", " + (this.lat) + ")");
 };
 LngLat.prototype.toBounds = function toBounds (radius) {
+        if ( radius === void 0 ) radius = 0;
+
     var earthCircumferenceInMetersAtEquator = 40075017;
     var latAccuracy = 360 * radius / earthCircumferenceInMetersAtEquator, lngAccuracy = latAccuracy / Math.cos(Math.PI / 180 * this.lat);
     return new LngLatBounds(new LngLat(this.lng - lngAccuracy, this.lat - latAccuracy), new LngLat(this.lng + lngAccuracy, this.lat + latAccuracy));
@@ -15501,16 +18704,13 @@ register('CanonicalTileID', CanonicalTileID);
 register('OverscaledTileID', OverscaledTileID, { omit: ['posMatrix'] });
 
 var DEMData = function DEMData(uid, data, encoding) {
-    var this$1 = this;
-
     this.uid = uid;
     if (data.height !== data.width)
         { throw new RangeError('DEM tiles must be square'); }
     if (encoding && encoding !== 'mapbox' && encoding !== 'terrarium')
         { return warnOnce(("\"" + encoding + "\" is not a valid encoding type. Valid types include \"mapbox\" and \"terrarium\".")); }
     var dim = this.dim = data.height;
-    this.border = Math.max(Math.ceil(data.height / 2), 1);
-    this.stride = this.dim + 2 * this.border;
+    this.stride = this.dim + 2;
     this.data = new Int32Array(this.stride * this.stride);
     var pixels = data.data;
     var unpack = encoding === 'terrarium' ? this._unpackTerrarium : this._unpackMapbox;
@@ -15518,14 +18718,14 @@ var DEMData = function DEMData(uid, data, encoding) {
         for (var x = 0; x < dim; x++) {
             var i = y * dim + x;
             var j = i * 4;
-            this$1.set(x, y, unpack(pixels[j], pixels[j + 1], pixels[j + 2]));
+            this.set(x, y, unpack(pixels[j], pixels[j + 1], pixels[j + 2]));
         }
     }
     for (var x$1 = 0; x$1 < dim; x$1++) {
-        this$1.set(-1, x$1, this$1.get(0, x$1));
-        this$1.set(dim, x$1, this$1.get(dim - 1, x$1));
-        this$1.set(x$1, -1, this$1.get(x$1, 0));
-        this$1.set(x$1, dim, this$1.get(x$1, dim - 1));
+        this.set(-1, x$1, this.get(0, x$1));
+        this.set(dim, x$1, this.get(dim - 1, x$1));
+        this.set(x$1, -1, this.get(x$1, 0));
+        this.set(x$1, dim, this.get(x$1, dim - 1));
     }
     this.set(-1, -1, this.get(0, 0));
     this.set(dim, -1, this.get(dim - 1, 0));
@@ -15539,9 +18739,9 @@ DEMData.prototype.get = function get (x, y) {
     return this.data[this._idx(x, y)] - 65536;
 };
 DEMData.prototype._idx = function _idx (x, y) {
-    if (x < -this.border || x >= this.dim + this.border || y < -this.border || y >= this.dim + this.border)
+    if (x < -1 || x >= this.dim + 1 || y < -1 || y >= this.dim + 1)
         { throw new RangeError('out of range source coordinates for DEM data'); }
-    return (y + this.border) * this.stride + (x + this.border);
+    return (y + 1) * this.stride + (x + 1);
 };
 DEMData.prototype._unpackMapbox = function _unpackMapbox (r, g, b) {
     return (r * 256 * 256 + g * 256 + b) / 10 - 10000;
@@ -15551,41 +18751,35 @@ DEMData.prototype._unpackTerrarium = function _unpackTerrarium (r, g, b) {
 };
 DEMData.prototype.getPixels = function getPixels () {
     return new RGBAImage({
-        width: this.dim + 2 * this.border,
-        height: this.dim + 2 * this.border
+        width: this.stride,
+        height: this.stride
     }, new Uint8Array(this.data.buffer));
 };
 DEMData.prototype.backfillBorder = function backfillBorder (borderTile, dx, dy) {
-        var this$1 = this;
-
     if (this.dim !== borderTile.dim)
         { throw new Error('dem dimension mismatch'); }
-    var _xMin = dx * this.dim, _xMax = dx * this.dim + this.dim, _yMin = dy * this.dim, _yMax = dy * this.dim + this.dim;
+    var xMin = dx * this.dim, xMax = dx * this.dim + this.dim, yMin = dy * this.dim, yMax = dy * this.dim + this.dim;
     switch (dx) {
     case -1:
-        _xMin = _xMax - 1;
+        xMin = xMax - 1;
         break;
     case 1:
-        _xMax = _xMin + 1;
+        xMax = xMin + 1;
         break;
     }
     switch (dy) {
     case -1:
-        _yMin = _yMax - 1;
+        yMin = yMax - 1;
         break;
     case 1:
-        _yMax = _yMin + 1;
+        yMax = yMin + 1;
         break;
     }
-    var xMin = clamp(_xMin, -this.border, this.dim + this.border);
-    var xMax = clamp(_xMax, -this.border, this.dim + this.border);
-    var yMin = clamp(_yMin, -this.border, this.dim + this.border);
-    var yMax = clamp(_yMax, -this.border, this.dim + this.border);
     var ox = -dx * this.dim;
     var oy = -dy * this.dim;
     for (var y = yMin; y < yMax; y++) {
         for (var x = xMin; x < xMax; x++) {
-            this$1.set(x, y, borderTile.get(x + ox, y + oy));
+            this.set(x, y, borderTile.get(x + ox, y + oy));
         }
     }
 };
@@ -15608,33 +18802,35 @@ function deserialize$1(input, style) {
     var output = {};
     if (!style)
         { return output; }
-    for (var i$1 = 0, list$1 = input; i$1 < list$1.length; i$1 += 1) {
+    var loop = function () {
         var bucket = list$1[i$1];
 
         var layers = bucket.layerIds.map(function (id) { return style.getLayer(id); }).filter(Boolean);
         if (layers.length === 0) {
-            continue;
+            return;
         }
         bucket.layers = layers;
-        bucket.stateDependentLayers = layers.filter(function (l) { return l.isStateDependent(); });
+        if (bucket.stateDependentLayerIds) {
+            bucket.stateDependentLayers = bucket.stateDependentLayerIds.map(function (lId) { return layers.filter(function (l) { return l.id === lId; })[0]; });
+        }
         for (var i = 0, list = layers; i < list.length; i += 1) {
             var layer = list[i];
 
             output[layer.id] = bucket;
         }
-    }
+    };
+
+    for (var i$1 = 0, list$1 = input; i$1 < list$1.length; i$1 += 1) loop();
     return output;
 }
 
 var DictionaryCoder = function DictionaryCoder(strings) {
-    var this$1 = this;
-
     this._stringToNumber = {};
     this._numberToString = [];
     for (var i = 0; i < strings.length; i++) {
         var string = strings[i];
-        this$1._stringToNumber[string] = i;
-        this$1._numberToString[i] = string;
+        this._stringToNumber[string] = i;
+        this._numberToString[i] = string;
     }
 };
 DictionaryCoder.prototype.encode = function encode (string) {
@@ -15667,13 +18863,11 @@ prototypeAccessors$1.geometry.set = function (g) {
     this._geometry = g;
 };
 Feature.prototype.toJSON = function toJSON () {
-        var this$1 = this;
-
     var json = { geometry: this.geometry };
-    for (var i in this$1) {
+    for (var i in this) {
         if (i === '_geometry' || i === '_vectorTileFeature')
             { continue; }
-        json[i] = this$1[i];
+        json[i] = this[i];
     }
     return json;
 };
@@ -15683,44 +18877,124 @@ Object.defineProperties( Feature.prototype, prototypeAccessors$1 );
 var SourceFeatureState = function SourceFeatureState() {
     this.state = {};
     this.stateChanges = {};
+    this.deletedStates = {};
 };
-SourceFeatureState.prototype.updateState = function updateState (sourceLayer, featureId, state) {
+SourceFeatureState.prototype.updateState = function updateState (sourceLayer, featureId, newState) {
     var feature = String(featureId);
     this.stateChanges[sourceLayer] = this.stateChanges[sourceLayer] || {};
     this.stateChanges[sourceLayer][feature] = this.stateChanges[sourceLayer][feature] || {};
-    extend(this.stateChanges[sourceLayer][feature], state);
+    extend(this.stateChanges[sourceLayer][feature], newState);
+    if (this.deletedStates[sourceLayer] === null) {
+        this.deletedStates[sourceLayer] = {};
+        for (var ft in this.state[sourceLayer]) {
+            if (ft !== feature)
+                { this.deletedStates[sourceLayer][ft] = null; }
+        }
+    } else {
+        var featureDeletionQueued = this.deletedStates[sourceLayer] && this.deletedStates[sourceLayer][feature] === null;
+        if (featureDeletionQueued) {
+            this.deletedStates[sourceLayer][feature] = {};
+            for (var prop in this.state[sourceLayer][feature]) {
+                if (!newState[prop])
+                    { this.deletedStates[sourceLayer][feature][prop] = null; }
+            }
+        } else {
+            for (var key in newState) {
+                var deletionInQueue = this.deletedStates[sourceLayer] && this.deletedStates[sourceLayer][feature] && this.deletedStates[sourceLayer][feature][key] === null;
+                if (deletionInQueue)
+                    { delete this.deletedStates[sourceLayer][feature][key]; }
+            }
+        }
+    }
+};
+SourceFeatureState.prototype.removeFeatureState = function removeFeatureState (sourceLayer, featureId, key) {
+    var sourceLayerDeleted = this.deletedStates[sourceLayer] === null;
+    if (sourceLayerDeleted)
+        { return; }
+    var feature = String(featureId);
+    this.deletedStates[sourceLayer] = this.deletedStates[sourceLayer] || {};
+    if (key && featureId) {
+        if (this.deletedStates[sourceLayer][feature] !== null) {
+            this.deletedStates[sourceLayer][feature] = this.deletedStates[sourceLayer][feature] || {};
+            this.deletedStates[sourceLayer][feature][key] = null;
+        }
+    } else if (featureId) {
+        var updateInQueue = this.stateChanges[sourceLayer] && this.stateChanges[sourceLayer][feature];
+        if (updateInQueue) {
+            this.deletedStates[sourceLayer][feature] = {};
+            for (key in this.stateChanges[sourceLayer][feature])
+                { this.deletedStates[sourceLayer][feature][key] = null; }
+        } else {
+            this.deletedStates[sourceLayer][feature] = null;
+        }
+    } else {
+        this.deletedStates[sourceLayer] = null;
+    }
 };
 SourceFeatureState.prototype.getState = function getState (sourceLayer, featureId) {
     var feature = String(featureId);
     var base = this.state[sourceLayer] || {};
     var changes = this.stateChanges[sourceLayer] || {};
-    return extend({}, base[feature], changes[feature]);
+    var reconciledState = extend({}, base[feature], changes[feature]);
+    if (this.deletedStates[sourceLayer] === null)
+        { return {}; }
+    else if (this.deletedStates[sourceLayer]) {
+        var featureDeletions = this.deletedStates[sourceLayer][featureId];
+        if (featureDeletions === null)
+            { return {}; }
+        for (var prop in featureDeletions)
+            { delete reconciledState[prop]; }
+    }
+    return reconciledState;
 };
 SourceFeatureState.prototype.initializeTileState = function initializeTileState (tile, painter) {
     tile.setFeatureState(this.state, painter);
 };
 SourceFeatureState.prototype.coalesceChanges = function coalesceChanges (tiles, painter) {
-        var this$1 = this;
-
-    var changes = {};
-    for (var sourceLayer in this$1.stateChanges) {
-        this$1.state[sourceLayer] = this$1.state[sourceLayer] || {};
+    var featuresChanged = {};
+    for (var sourceLayer in this.stateChanges) {
+        this.state[sourceLayer] = this.state[sourceLayer] || {};
         var layerStates = {};
-        for (var id in this$1.stateChanges[sourceLayer]) {
-            if (!this$1.state[sourceLayer][id]) {
-                this$1.state[sourceLayer][id] = {};
-            }
-            extend(this$1.state[sourceLayer][id], this$1.stateChanges[sourceLayer][id]);
-            layerStates[id] = this$1.state[sourceLayer][id];
+        for (var feature in this.stateChanges[sourceLayer]) {
+            if (!this.state[sourceLayer][feature])
+                { this.state[sourceLayer][feature] = {}; }
+            extend(this.state[sourceLayer][feature], this.stateChanges[sourceLayer][feature]);
+            layerStates[feature] = this.state[sourceLayer][feature];
         }
-        changes[sourceLayer] = layerStates;
+        featuresChanged[sourceLayer] = layerStates;
+    }
+    for (var sourceLayer$1 in this.deletedStates) {
+        this.state[sourceLayer$1] = this.state[sourceLayer$1] || {};
+        var layerStates$1 = {};
+        if (this.deletedStates[sourceLayer$1] === null) {
+            for (var ft in this.state[sourceLayer$1])
+                { layerStates$1[ft] = {}; }
+            this.state[sourceLayer$1] = {};
+        } else {
+            for (var feature$1 in this.deletedStates[sourceLayer$1]) {
+                var deleteWholeFeatureState = this.deletedStates[sourceLayer$1][feature$1] === null;
+                if (deleteWholeFeatureState)
+                    { this.state[sourceLayer$1][feature$1] = {}; }
+                else {
+                    for (var i = 0, list = Object.keys(this.deletedStates[sourceLayer$1][feature$1]); i < list.length; i += 1) {
+                        var key = list[i];
+
+                            delete this.state[sourceLayer$1][feature$1][key];
+                    }
+                }
+                layerStates$1[feature$1] = this.state[sourceLayer$1][feature$1];
+            }
+        }
+        featuresChanged[sourceLayer$1] = featuresChanged[sourceLayer$1] || {};
+        extend(featuresChanged[sourceLayer$1], layerStates$1);
     }
     this.stateChanges = {};
-    if (Object.keys(changes).length === 0)
+    this.deletedStates = {};
+    if (Object.keys(featuresChanged).length === 0)
         { return; }
-    for (var id$1 in tiles) {
-        var tile = tiles[id$1];
-        tile.setFeatureState(changes, painter);
+    for (var id in tiles) {
+        var tile = tiles[id];
+        tile.setFeatureState(featuresChanged, painter);
     }
 };
 
@@ -15730,13 +19004,13 @@ var FeatureIndex = function FeatureIndex(tileID, grid, featureIndexArray) {
     this.y = tileID.canonical.y;
     this.z = tileID.canonical.z;
     this.grid = grid || new gridIndex(EXTENT, 16, 0);
+    this.grid3D = new gridIndex(EXTENT, 16, 0);
     this.featureIndexArray = featureIndexArray || new FeatureIndexArray();
 };
-FeatureIndex.prototype.insert = function insert (feature, geometry, featureIndex, sourceLayerIndex, bucketIndex) {
-        var this$1 = this;
-
+FeatureIndex.prototype.insert = function insert (feature, geometry, featureIndex, sourceLayerIndex, bucketIndex, is3D) {
     var key = this.featureIndexArray.length;
     this.featureIndexArray.emplaceBack(featureIndex, sourceLayerIndex, bucketIndex);
+    var grid = is3D ? this.grid3D : this.grid;
     for (var r = 0; r < geometry.length; r++) {
         var ring = geometry[r];
         var bbox = [
@@ -15753,7 +19027,7 @@ FeatureIndex.prototype.insert = function insert (feature, geometry, featureIndex
             bbox[3] = Math.max(bbox[3], p.y);
         }
         if (bbox[0] < EXTENT && bbox[1] < EXTENT && bbox[2] >= 0 && bbox[3] >= 0) {
-            this$1.grid.insert(key, bbox[0], bbox[1], bbox[2], bbox[3]);
+            grid.insert(key, bbox[0], bbox[1], bbox[2], bbox[3]);
         }
     }
 };
@@ -15771,21 +19045,17 @@ FeatureIndex.prototype.query = function query (args, styleLayers, sourceFeatureS
     var params = args.params || {}, pixelsToTileUnits = EXTENT / args.tileSize / args.scale, filter = createFilter(params.filter);
     var queryGeometry = args.queryGeometry;
     var queryPadding = args.queryPadding * pixelsToTileUnits;
-    var minX = Infinity;
-    var minY = Infinity;
-    var maxX = -Infinity;
-    var maxY = -Infinity;
-    for (var i = 0; i < queryGeometry.length; i++) {
-        var ring = queryGeometry[i];
-        for (var k = 0; k < ring.length; k++) {
-            var p = ring[k];
-            minX = Math.min(minX, p.x);
-            minY = Math.min(minY, p.y);
-            maxX = Math.max(maxX, p.x);
-            maxY = Math.max(maxY, p.y);
-        }
+    var bounds = getBounds(queryGeometry);
+    var matching = this.grid.query(bounds.minX - queryPadding, bounds.minY - queryPadding, bounds.maxX + queryPadding, bounds.maxY + queryPadding);
+    var cameraBounds = getBounds(args.cameraQueryGeometry);
+    var matching3D = this.grid3D.query(cameraBounds.minX - queryPadding, cameraBounds.minY - queryPadding, cameraBounds.maxX + queryPadding, cameraBounds.maxY + queryPadding, function (bx1, by1, bx2, by2) {
+        return polygonIntersectsBox(args.cameraQueryGeometry, bx1 - queryPadding, by1 - queryPadding, bx2 + queryPadding, by2 + queryPadding);
+    });
+    for (var i = 0, list = matching3D; i < list.length; i += 1) {
+        var key = list[i];
+
+            matching.push(key);
     }
-    var matching = this.grid.query(minX - queryPadding, minY - queryPadding, maxX + queryPadding, maxY + queryPadding);
     matching.sort(topDownFeatureComparator);
     var result = {};
     var previousIndex;
@@ -15804,16 +19074,14 @@ FeatureIndex.prototype.query = function query (args, styleLayers, sourceFeatureS
             if (feature.id) {
                 featureState = sourceFeatureState.getState(styleLayer.sourceLayer || '_geojsonTileLayer', feature.id);
             }
-            return styleLayer.queryIntersectsFeature(queryGeometry, feature, featureState, featureGeometry, this$1.z, args.transform, pixelsToTileUnits, args.posMatrix);
+            return styleLayer.queryIntersectsFeature(queryGeometry, feature, featureState, featureGeometry, this$1.z, args.transform, pixelsToTileUnits, args.pixelPosMatrix);
         });
     };
 
-        for (var k$1 = 0; k$1 < matching.length; k$1++) loop( k$1 );
+        for (var k = 0; k < matching.length; k++) loop( k );
     return result;
 };
 FeatureIndex.prototype.loadMatchingFeature = function loadMatchingFeature (result, bucketIndex, sourceLayerIndex, featureIndex, filter, filterLayerIDs, styleLayers, intersectionTest) {
-        var this$1 = this;
-
     var layerIDs = this.bucketLayerIDs[bucketIndex];
     if (filterLayerIDs && !arraysIntersect(filterLayerIDs, layerIDs))
         { return; }
@@ -15830,10 +19098,11 @@ FeatureIndex.prototype.loadMatchingFeature = function loadMatchingFeature (resul
         var styleLayer = styleLayers[layerID];
         if (!styleLayer)
             { continue; }
-        if (intersectionTest && !intersectionTest(feature, styleLayer)) {
+        var intersectionZ = !intersectionTest || intersectionTest(feature, styleLayer);
+        if (!intersectionZ) {
             continue;
         }
-        var geojsonFeature = new Feature(feature, this$1.z, this$1.x, this$1.y);
+        var geojsonFeature = new Feature(feature, this.z, this.x, this.y);
         geojsonFeature.layer = styleLayer.serialize();
         var layerResult = result[layerID];
         if (layerResult === undefined) {
@@ -15841,27 +19110,24 @@ FeatureIndex.prototype.loadMatchingFeature = function loadMatchingFeature (resul
         }
         layerResult.push({
             featureIndex: featureIndex,
-            feature: geojsonFeature
+            feature: geojsonFeature,
+            intersectionZ: intersectionZ
         });
     }
 };
 FeatureIndex.prototype.lookupSymbolFeatures = function lookupSymbolFeatures (symbolFeatureIndexes, bucketIndex, sourceLayerIndex, filterSpec, filterLayerIDs, styleLayers) {
-        var this$1 = this;
-
     var result = {};
     this.loadVTLayers();
     var filter = createFilter(filterSpec);
     for (var i = 0, list = symbolFeatureIndexes; i < list.length; i += 1) {
         var symbolFeatureIndex = list[i];
 
-            this$1.loadMatchingFeature(result, bucketIndex, sourceLayerIndex, symbolFeatureIndex, filter, filterLayerIDs, styleLayers);
+            this.loadMatchingFeature(result, bucketIndex, sourceLayerIndex, symbolFeatureIndex, filter, filterLayerIDs, styleLayers);
     }
     return result;
 };
 FeatureIndex.prototype.hasLayer = function hasLayer (id) {
-        var this$1 = this;
-
-    for (var i$1 = 0, list$1 = this$1.bucketLayerIDs; i$1 < list$1.length; i$1 += 1) {
+    for (var i$1 = 0, list$1 = this.bucketLayerIDs; i$1 < list$1.length; i$1 += 1) {
         var layerIDs = list$1[i$1];
 
             for (var i = 0, list = layerIDs; i < list.length; i += 1) {
@@ -15879,6 +19145,26 @@ register('FeatureIndex', FeatureIndex, {
         'sourceLayerCoder'
     ]
 });
+function getBounds(geometry) {
+    var minX = Infinity;
+    var minY = Infinity;
+    var maxX = -Infinity;
+    var maxY = -Infinity;
+    for (var i = 0, list = geometry; i < list.length; i += 1) {
+        var p = list[i];
+
+        minX = Math.min(minX, p.x);
+        minY = Math.min(minY, p.y);
+        maxX = Math.max(maxX, p.x);
+        maxY = Math.max(maxY, p.y);
+    }
+    return {
+        minX: minX,
+        minY: minY,
+        maxX: maxX,
+        maxY: maxY
+    };
+}
 function topDownFeatureComparator(a, b) {
     return b - a;
 }
@@ -15908,8 +19194,6 @@ Tile.prototype.wasRequested = function wasRequested () {
     return this.state === 'errored' || this.state === 'loaded' || this.state === 'reloading';
 };
 Tile.prototype.loadVectorData = function loadVectorData (data, painter, justReloaded) {
-        var this$1 = this;
-
     if (this.hasData()) {
         this.unloadVectorData();
     }
@@ -15930,10 +19214,10 @@ Tile.prototype.loadVectorData = function loadVectorData (data, painter, justRelo
     this.collisionBoxArray = data.collisionBoxArray;
     this.buckets = deserialize$1(data.buckets, painter.style);
     this.hasSymbolBuckets = false;
-    for (var id in this$1.buckets) {
-        var bucket = this$1.buckets[id];
+    for (var id in this.buckets) {
+        var bucket = this.buckets[id];
         if (bucket instanceof SymbolBucket) {
-            this$1.hasSymbolBuckets = true;
+            this.hasSymbolBuckets = true;
             if (justReloaded) {
                 bucket.justReloaded = true;
             } else {
@@ -15942,9 +19226,9 @@ Tile.prototype.loadVectorData = function loadVectorData (data, painter, justRelo
         }
     }
     this.queryPadding = 0;
-    for (var id$1 in this$1.buckets) {
-        var bucket$1 = this$1.buckets[id$1];
-        this$1.queryPadding = Math.max(this$1.queryPadding, painter.style.getLayer(id$1).queryRadius(bucket$1));
+    for (var id$1 in this.buckets) {
+        var bucket$1 = this.buckets[id$1];
+        this.queryPadding = Math.max(this.queryPadding, painter.style.getLayer(id$1).queryRadius(bucket$1));
     }
     if (data.imageAtlas) {
         this.imageAtlas = data.imageAtlas;
@@ -15954,10 +19238,8 @@ Tile.prototype.loadVectorData = function loadVectorData (data, painter, justRelo
     }
 };
 Tile.prototype.unloadVectorData = function unloadVectorData () {
-        var this$1 = this;
-
-    for (var id in this$1.buckets) {
-        this$1.buckets[id].destroy();
+    for (var id in this.buckets) {
+        this.buckets[id].destroy();
     }
     this.buckets = {};
     if (this.imageAtlasTexture) {
@@ -15981,10 +19263,8 @@ Tile.prototype.getBucket = function getBucket (layer) {
     return this.buckets[layer.id];
 };
 Tile.prototype.upload = function upload (context) {
-        var this$1 = this;
-
-    for (var id in this$1.buckets) {
-        var bucket = this$1.buckets[id];
+    for (var id in this.buckets) {
+        var bucket = this.buckets[id];
         if (bucket.uploadPending()) {
             bucket.upload(context);
         }
@@ -15999,22 +19279,21 @@ Tile.prototype.upload = function upload (context) {
         this.glyphAtlasImage = null;
     }
 };
-Tile.prototype.queryRenderedFeatures = function queryRenderedFeatures (layers, sourceFeatureState, queryGeometry, scale, params, transform, maxPitchScaleFactor, posMatrix) {
+Tile.prototype.queryRenderedFeatures = function queryRenderedFeatures (layers, sourceFeatureState, queryGeometry, cameraQueryGeometry, scale, params, transform, maxPitchScaleFactor, pixelPosMatrix) {
     if (!this.latestFeatureIndex || !this.latestFeatureIndex.rawTileData)
         { return {}; }
     return this.latestFeatureIndex.query({
         queryGeometry: queryGeometry,
+        cameraQueryGeometry: cameraQueryGeometry,
         scale: scale,
         tileSize: this.tileSize,
-        posMatrix: posMatrix,
+        pixelPosMatrix: pixelPosMatrix,
         transform: transform,
         params: params,
         queryPadding: this.queryPadding * maxPitchScaleFactor
     }, layers, sourceFeatureState);
 };
 Tile.prototype.querySourceFeatures = function querySourceFeatures (result, params) {
-        var this$1 = this;
-
     if (!this.latestFeatureIndex || !this.latestFeatureIndex.rawTileData)
         { return; }
     var vtLayers = this.latestFeatureIndex.loadVTLayers();
@@ -16034,7 +19313,7 @@ Tile.prototype.querySourceFeatures = function querySourceFeatures (result, param
     };
     for (var i = 0; i < layer.length; i++) {
         var feature = layer.feature(i);
-        if (filter(new EvaluationParameters(this$1.tileID.overscaledZ), feature)) {
+        if (filter(new EvaluationParameters(this.tileID.overscaledZ), feature)) {
             var geojsonFeature = new Feature(feature, z, x, y);
             geojsonFeature.tile = coord;
             result.push(geojsonFeature);
@@ -16056,8 +19335,6 @@ Tile.prototype.clearMask = function clearMask () {
     }
 };
 Tile.prototype.setMask = function setMask (mask, context) {
-        var this$1 = this;
-
     if (deepEqual(this.mask, mask))
         { return; }
     this.mask = mask;
@@ -16074,7 +19351,7 @@ Tile.prototype.setMask = function setMask (mask, context) {
         var vertexExtent = EXTENT >> maskCoord.z;
         var tlVertex = new pointGeometry(maskCoord.x * vertexExtent, maskCoord.y * vertexExtent);
         var brVertex = new pointGeometry(tlVertex.x + vertexExtent, tlVertex.y + vertexExtent);
-        var segment = this$1.segments.prepareSegment(4, maskedBoundsArray, indexArray);
+        var segment = this.segments.prepareSegment(4, maskedBoundsArray, indexArray);
         maskedBoundsArray.emplaceBack(tlVertex.x, tlVertex.y, tlVertex.x, tlVertex.y);
         maskedBoundsArray.emplaceBack(brVertex.x, tlVertex.y, brVertex.x, tlVertex.y);
         maskedBoundsArray.emplaceBack(tlVertex.x, brVertex.y, tlVertex.x, brVertex.y);
@@ -16138,22 +19415,20 @@ Tile.prototype.getExpiryTimeout = function getExpiryTimeout () {
     }
 };
 Tile.prototype.setFeatureState = function setFeatureState (states, painter) {
-        var this$1 = this;
-
     if (!this.latestFeatureIndex || !this.latestFeatureIndex.rawTileData || Object.keys(states).length === 0) {
         return;
     }
     var vtLayers = this.latestFeatureIndex.loadVTLayers();
-    for (var id in this$1.buckets) {
-        var bucket = this$1.buckets[id];
+    for (var id in this.buckets) {
+        var bucket = this.buckets[id];
         var sourceLayerId = bucket.layers[0]['sourceLayer'] || '_geojsonTileLayer';
         var sourceLayer = vtLayers[sourceLayerId];
         var sourceLayerStates = states[sourceLayerId];
         if (!sourceLayer || !sourceLayerStates || Object.keys(sourceLayerStates).length === 0)
             { continue; }
-        bucket.update(sourceLayerStates, sourceLayer, this$1.imageAtlas && this$1.imageAtlas.patternPositions || {});
+        bucket.update(sourceLayerStates, sourceLayer, this.imageAtlas && this.imageAtlas.patternPositions || {});
         if (painter && painter.style) {
-            this$1.queryPadding = Math.max(this$1.queryPadding, painter.style.getLayer(id).queryRadius(bucket));
+            this.queryPadding = Math.max(this.queryPadding, painter.style.getLayer(id).queryRadius(bucket));
         }
     }
 };
@@ -16556,168 +19831,151 @@ function shapeIcon(image, iconOffset, iconAnchor) {
 }
 
 exports.createCommonjsModule = createCommonjsModule;
-exports.Point = pointGeometry;
 exports.window = self;
-exports.getJSON = getJSON;
-exports.getImage = getImage;
-exports.ResourceType = ResourceType;
+exports.Point = pointGeometry;
 exports.browser = exported;
+exports.getJSON = getJSON;
 exports.normalizeSpriteURL = normalizeSpriteURL;
+exports.ResourceType = ResourceType;
+exports.getImage = getImage;
 exports.RGBAImage = RGBAImage;
-exports.potpack = potpack;
 exports.ImagePosition = ImagePosition;
 exports.Texture = Texture;
+exports.potpack = potpack;
 exports.normalizeGlyphsURL = normalizeGlyphsURL;
 exports.getArrayBuffer = getArrayBuffer;
 exports.parseGlyphPBF = parseGlyphPBF;
-exports.isChar = unicodeBlockLookup;
 exports.asyncAll = asyncAll;
+exports.isChar = unicodeBlockLookup;
 exports.AlphaImage = AlphaImage;
-exports.styleSpec = styleSpec;
-exports.endsWith = endsWith;
-exports.extend = extend;
-exports.sphericalToCartesian = sphericalToCartesian;
-exports.Evented = Evented;
-exports.validateStyle = validateStyle;
-exports.validateLight = validateLight$1;
-exports.emitValidationErrors = emitValidationErrors;
-exports.Color = Color;
-exports.number = number;
 exports.Properties = Properties;
-exports.Transitionable = Transitionable;
-exports.Transitioning = Transitioning;
-exports.PossiblyEvaluated = PossiblyEvaluated;
 exports.DataConstantProperty = DataConstantProperty;
+exports.styleSpec = spec;
+exports.validateLight = validateLight$1;
+exports.endsWith = endsWith;
+exports.emitValidationErrors = emitValidationErrors;
+exports.validateStyle = validateStyle;
+exports.extend = extend;
+exports.Evented = Evented;
+exports.sphericalToCartesian = sphericalToCartesian;
+exports.number = number;
+exports.Transitionable = Transitionable;
 exports.warnOnce = warnOnce;
 exports.uniqueId = uniqueId;
 exports.Actor = Actor;
-exports.pick = pick;
 exports.normalizeSourceURL = normalizeSourceURL;
+exports.pick = pick;
 exports.canonicalizeTileset = canonicalizeTileset;
 exports.LngLatBounds = LngLatBounds;
 exports.mercatorXfromLng = mercatorXfromLng;
 exports.mercatorYfromLat = mercatorYfromLat;
 exports.Event = Event;
 exports.ErrorEvent = ErrorEvent;
-exports.normalizeTileURL = normalizeTileURL;
 exports.postTurnstileEvent = postTurnstileEvent;
 exports.postMapLoadEvent = postMapLoadEvent;
+exports.normalizeTileURL = normalizeTileURL;
 exports.OverscaledTileID = OverscaledTileID;
 exports.EXTENT = EXTENT;
+exports.MercatorCoordinate = MercatorCoordinate;
 exports.CanonicalTileID = CanonicalTileID;
 exports.StructArrayLayout4i8 = StructArrayLayout4i8;
 exports.rasterBoundsAttributes = rasterBoundsAttributes;
 exports.SegmentVector = SegmentVector;
-exports.MercatorCoordinate = MercatorCoordinate;
 exports.getVideo = getVideo;
 exports.ValidationError = ValidationError;
 exports.bindAll = bindAll;
-exports.isEqual = deepEqual;
-exports.Tile = Tile;
-exports.keysDifference = keysDifference;
-exports.SourceFeatureState = SourceFeatureState;
-exports.refProperties = refProperties;
-exports.create = create$3;
-exports.identity = identity$3;
-exports.invert = invert$3;
 exports.multiply = multiply$3;
+exports.identity = identity$3;
 exports.translate = translate$3;
 exports.scale = scale$3;
-exports.rotateX = rotateX;
+exports.Color = Color;
+exports.isEqual = deepEqual;
+exports.keysDifference = keysDifference;
+exports.Tile = Tile;
+exports.SourceFeatureState = SourceFeatureState;
+exports.refProperties = refProperties;
 exports.rotateZ = rotateZ;
-exports.perspective = perspective;
-exports.ortho = ortho;
-exports.create$1 = create$5;
-exports.normalize = normalize$1;
-exports.transformMat4 = transformMat4$1;
-exports.forEach = forEach$1;
-exports.getSizeData = getSizeData;
-exports.evaluateSizeForFeature = evaluateSizeForFeature;
 exports.evaluateSizeForZoom = evaluateSizeForZoom;
-exports.SIZE_PACK_FACTOR = SIZE_PACK_FACTOR;
+exports.WritingMode = WritingMode;
+exports.transformMat4 = transformMat4$1;
+exports.evaluateSizeForFeature = evaluateSizeForFeature;
 exports.addDynamicAttributes = addDynamicAttributes;
 exports.properties = properties$6;
-exports.WritingMode = WritingMode;
-exports.multiPolygonIntersectsBufferedPoint = multiPolygonIntersectsBufferedPoint;
-exports.multiPolygonIntersectsMultiPolygon = multiPolygonIntersectsMultiPolygon;
-exports.multiPolygonIntersectsBufferedMultiLine = multiPolygonIntersectsBufferedMultiLine;
 exports.polygonIntersectsPolygon = polygonIntersectsPolygon;
-exports.distToSegmentSquared = distToSegmentSquared;
-exports.SymbolInstanceArray = SymbolInstanceArray;
-exports.StyleLayer = StyleLayer;
-exports.createStyleLayer = createStyleLayer;
-exports.clone = clone;
-exports.filterObject = filterObject;
-exports.mapObject = mapObject;
-exports.getReferrer = getReferrer;
 exports.isMapboxURL = isMapboxURL;
 exports.normalizeStyleURL = normalizeStyleURL;
-exports.registerForPluginAvailability = registerForPluginAvailability;
-exports.evented = evented;
-exports.ZoomHistory = ZoomHistory;
+exports.createStyleLayer = createStyleLayer;
+exports.clone = clone;
 exports.validateCustomStyleLayer = validateCustomStyleLayer;
+exports.filterObject = filterObject;
+exports.mapObject = mapObject;
+exports.evented = evented;
+exports.makeRequest = makeRequest;
+exports.registerForPluginAvailability = registerForPluginAvailability;
+exports.ZoomHistory = ZoomHistory;
+exports.getReferrer = getReferrer;
 exports.createLayout = createLayout;
-exports.ProgramConfiguration = ProgramConfiguration;
-exports.Uniform1i = Uniform1i;
+exports.UniformMatrix4f = UniformMatrix4f;
+exports.Uniform3f = Uniform3f;
 exports.Uniform1f = Uniform1f;
+exports.Uniform1i = Uniform1i;
 exports.Uniform2f = Uniform2f;
 exports.Uniform4f = Uniform4f;
-exports.Uniform3f = Uniform3f;
-exports.UniformMatrix4f = UniformMatrix4f;
-exports.create$2 = create$2;
+exports.create = create$2;
 exports.fromRotation = fromRotation$2;
-exports.create$3 = create$4;
-exports.length = length;
-exports.fromValues = fromValues$4;
-exports.normalize$1 = normalize;
-exports.dot = dot;
-exports.cross = cross;
 exports.transformMat3 = transformMat3;
-exports.len = len;
-exports.forEach$1 = forEach;
+exports.create$1 = create$3;
+exports.ortho = ortho;
 exports.UniformColor = UniformColor;
 exports.clamp = clamp;
 exports.StructArrayLayout2i4 = StructArrayLayout2i4;
 exports.StructArrayLayout2ui4 = StructArrayLayout2ui4;
-exports.StructArrayLayout3ui6 = StructArrayLayout3ui6;
+exports.ProgramConfiguration = ProgramConfiguration;
 exports.StructArrayLayout1ui2 = StructArrayLayout1ui2;
-exports.LngLat = LngLat;
-exports.mercatorZfromAltitude = mercatorZfromAltitude;
+exports.StructArrayLayout3ui6 = StructArrayLayout3ui6;
 exports.wrap = wrap;
-exports.UnwrappedTileID = UnwrappedTileID;
-exports.create$4 = create;
+exports.create$2 = create;
 exports.rotate = rotate;
+exports.LngLat = LngLat;
+exports.UnwrappedTileID = UnwrappedTileID;
+exports.perspective = perspective;
+exports.rotateX = rotateX;
+exports.mercatorZfromAltitude = mercatorZfromAltitude;
+exports.invert = invert$3;
 exports.ease = ease;
 exports.bezier = bezier;
 exports.config = config;
-exports.EvaluationParameters = EvaluationParameters;
 exports.webpSupported = exported$1;
+exports.EvaluationParameters = EvaluationParameters;
 exports.version = version;
 exports.setRTLTextPlugin = setRTLTextPlugin;
-exports.values = values;
 exports.featureFilter = createFilter;
+exports.values = values;
 exports.Anchor = Anchor;
 exports.GLYPH_PBF_BORDER = GLYPH_PBF_BORDER;
-exports.shapeText = shapeText;
-exports.shapeIcon = shapeIcon;
-exports.allowsVerticalWritingMode = allowsVerticalWritingMode;
+exports.distToSegmentSquared = distToSegmentSquared;
 exports.allowsLetterSpacing = allowsLetterSpacing;
+exports.shapeText = shapeText;
+exports.allowsVerticalWritingMode = allowsVerticalWritingMode;
+exports.shapeIcon = shapeIcon;
 exports.classifyRings = classifyRings;
+exports.SIZE_PACK_FACTOR = SIZE_PACK_FACTOR;
 exports.SymbolBucket = SymbolBucket;
 exports.register = register;
-exports.FeatureIndex = FeatureIndex;
 exports.CollisionBoxArray = CollisionBoxArray;
 exports.DictionaryCoder = DictionaryCoder;
+exports.FeatureIndex = FeatureIndex;
+exports.ImageAtlas = ImageAtlas;
 exports.LineBucket = LineBucket;
 exports.FillBucket = FillBucket;
 exports.FillExtrusionBucket = FillExtrusionBucket;
-exports.ImageAtlas = ImageAtlas;
 exports.mvt = vectorTile;
 exports.Protobuf = pbf;
 exports.DEMData = DEMData;
 exports.vectorTile = vectorTile;
 exports.Point$1 = pointGeometry;
 exports.pbf = pbf;
+exports.createExpression = createExpression;
 exports.plugin = plugin;
 
 });
@@ -16786,15 +20044,15 @@ StyleLayerIndex.prototype.update = function update (layerConfigs, removedIds) {
     for (var i = 0, list = layerConfigs; i < list.length; i += 1) {
         var layerConfig = list[i];
 
-            this$1._layerConfigs[layerConfig.id] = layerConfig;
-        var layer = this$1._layers[layerConfig.id] = __chunk_1.createStyleLayer(layerConfig);
+            this._layerConfigs[layerConfig.id] = layerConfig;
+        var layer = this._layers[layerConfig.id] = __chunk_1.createStyleLayer(layerConfig);
         layer._featureFilter = __chunk_1.featureFilter(layer.filter);
     }
     for (var i$1 = 0, list$1 = removedIds; i$1 < list$1.length; i$1 += 1) {
         var id = list$1[i$1];
 
-            delete this$1._layerConfigs[id];
-        delete this$1._layers[id];
+            delete this._layerConfigs[id];
+        delete this._layers[id];
     }
     this.familiesBySource = {};
     var groups = groupByLayout(__chunk_1.values(this._layerConfigs));
@@ -16807,9 +20065,9 @@ StyleLayerIndex.prototype.update = function update (layerConfigs, removedIds) {
             continue;
         }
         var sourceId = layer$1.source || '';
-        var sourceGroup = this$1.familiesBySource[sourceId];
+        var sourceGroup = this.familiesBySource[sourceId];
         if (!sourceGroup) {
-            sourceGroup = this$1.familiesBySource[sourceId] = {};
+            sourceGroup = this.familiesBySource[sourceId] = {};
         }
         var sourceLayerId = layer$1.sourceLayer || '_geojsonTileLayer';
         var sourceLayerFamilies = sourceGroup[sourceLayerId];
@@ -17187,83 +20445,77 @@ CollisionFeature.prototype._addLineCollisionCircles = function _addLineCollision
     }
 };
 
-var tinyqueue = TinyQueue;
-var default_1 = TinyQueue;
-function TinyQueue(data, compare) {
-    var this$1 = this;
+var TinyQueue = function TinyQueue(data, compare) {
+    if ( data === void 0 ) data = [];
+    if ( compare === void 0 ) compare = defaultCompare;
 
-    if (!(this instanceof TinyQueue))
-        { return new TinyQueue(data, compare); }
-    this.data = data || [];
+    this.data = data;
     this.length = this.data.length;
-    this.compare = compare || defaultCompare;
+    this.compare = compare;
     if (this.length > 0) {
         for (var i = (this.length >> 1) - 1; i >= 0; i--)
-            { this$1._down(i); }
+            { this._down(i); }
     }
-}
+};
+TinyQueue.prototype.push = function push (item) {
+    this.data.push(item);
+    this.length++;
+    this._up(this.length - 1);
+};
+TinyQueue.prototype.pop = function pop () {
+    if (this.length === 0)
+        { return undefined; }
+    var top = this.data[0];
+    this.length--;
+    if (this.length > 0) {
+        this.data[0] = this.data[this.length];
+        this._down(0);
+    }
+    this.data.pop();
+    return top;
+};
+TinyQueue.prototype.peek = function peek () {
+    return this.data[0];
+};
+TinyQueue.prototype._up = function _up (pos) {
+    var ref = this;
+        var data = ref.data;
+        var compare = ref.compare;
+    var item = data[pos];
+    while (pos > 0) {
+        var parent = pos - 1 >> 1;
+        var current = data[parent];
+        if (compare(item, current) >= 0)
+            { break; }
+        data[pos] = current;
+        pos = parent;
+    }
+    data[pos] = item;
+};
+TinyQueue.prototype._down = function _down (pos) {
+    var ref = this;
+        var data = ref.data;
+        var compare = ref.compare;
+    var halfLength = this.length >> 1;
+    var item = data[pos];
+    while (pos < halfLength) {
+        var left = (pos << 1) + 1;
+        var best = data[left];
+        var right = left + 1;
+        if (right < this.length && compare(data[right], best) < 0) {
+            left = right;
+            best = data[right];
+        }
+        if (compare(best, item) >= 0)
+            { break; }
+        data[pos] = best;
+        pos = left;
+    }
+    data[pos] = item;
+};
 function defaultCompare(a, b) {
     return a < b ? -1 : a > b ? 1 : 0;
 }
-TinyQueue.prototype = {
-    push: function (item) {
-        this.data.push(item);
-        this.length++;
-        this._up(this.length - 1);
-    },
-    pop: function () {
-        if (this.length === 0)
-            { return undefined; }
-        var top = this.data[0];
-        this.length--;
-        if (this.length > 0) {
-            this.data[0] = this.data[this.length];
-            this._down(0);
-        }
-        this.data.pop();
-        return top;
-    },
-    peek: function () {
-        return this.data[0];
-    },
-    _up: function (pos) {
-        var data = this.data;
-        var compare = this.compare;
-        var item = data[pos];
-        while (pos > 0) {
-            var parent = pos - 1 >> 1;
-            var current = data[parent];
-            if (compare(item, current) >= 0)
-                { break; }
-            data[pos] = current;
-            pos = parent;
-        }
-        data[pos] = item;
-    },
-    _down: function (pos) {
-        var this$1 = this;
-
-        var data = this.data;
-        var compare = this.compare;
-        var halfLength = this.length >> 1;
-        var item = data[pos];
-        while (pos < halfLength) {
-            var left = (pos << 1) + 1;
-            var right = left + 1;
-            var best = data[left];
-            if (right < this$1.length && compare(data[right], best) < 0) {
-                left = right;
-                best = data[right];
-            }
-            if (compare(best, item) >= 0)
-                { break; }
-            data[pos] = best;
-            pos = left;
-        }
-        data[pos] = item;
-    }
-};
-tinyqueue.default = default_1;
 
 function findPoleOfInaccessibility (polygonRings, precision, debug) {
     if ( precision === void 0 ) precision = 1;
@@ -17286,7 +20538,7 @@ function findPoleOfInaccessibility (polygonRings, precision, debug) {
     var height = maxY - minY;
     var cellSize = Math.min(width, height);
     var h = cellSize / 2;
-    var cellQueue = new tinyqueue(null, compareMax);
+    var cellQueue = new TinyQueue([], compareMax);
     if (cellSize === 0)
         { return new __chunk_1.Point(minX, minY); }
     for (var x = minX; x < maxX; x += cellSize) {
@@ -17759,7 +21011,7 @@ WorkerTile.prototype.parse = function parse (data, layerIndex, actor, callback) 
             continue;
         }
         if (sourceLayer.version === 1) {
-            __chunk_1.warnOnce("Vector tile source \"" + (this$1.source) + "\" layer \"" + sourceLayerId + "\" " + "does not use vector tile spec v2 and therefore may have some rendering errors.");
+            __chunk_1.warnOnce("Vector tile source \"" + (this.source) + "\" layer \"" + sourceLayerId + "\" " + "does not use vector tile spec v2 and therefore may have some rendering errors.");
         }
         var sourceLayerIndex = sourceLayerCoder.encode(sourceLayerId);
         var features = [];
@@ -17775,22 +21027,22 @@ WorkerTile.prototype.parse = function parse (data, layerIndex, actor, callback) 
             var family = list[i];
 
                 var layer = family[0];
-            if (layer.minzoom && this$1.zoom < Math.floor(layer.minzoom))
+            if (layer.minzoom && this.zoom < Math.floor(layer.minzoom))
                 { continue; }
-            if (layer.maxzoom && this$1.zoom >= layer.maxzoom)
+            if (layer.maxzoom && this.zoom >= layer.maxzoom)
                 { continue; }
             if (layer.visibility === 'none')
                 { continue; }
-            recalculateLayers(family, this$1.zoom);
+            recalculateLayers(family, this.zoom);
             var bucket = buckets[layer.id] = layer.createBucket({
                 index: featureIndex.bucketLayerIDs.length,
                 layers: family,
-                zoom: this$1.zoom,
-                pixelRatio: this$1.pixelRatio,
-                overscaling: this$1.overscaling,
-                collisionBoxArray: this$1.collisionBoxArray,
+                zoom: this.zoom,
+                pixelRatio: this.pixelRatio,
+                overscaling: this.overscaling,
+                collisionBoxArray: this.collisionBoxArray,
                 sourceLayerIndex: sourceLayerIndex,
-                sourceID: this$1.source
+                sourceID: this.source
             });
             bucket.populate(features, options);
             featureIndex.bucketLayerIDs.push(family.map(function (l) { return l.id; }));
@@ -17841,8 +21093,6 @@ WorkerTile.prototype.parse = function parse (data, layerIndex, actor, callback) 
     }
     maybePrepare.call(this);
     function maybePrepare() {
-            var this$1 = this;
-
         if (error) {
             return callback(error);
         } else if (glyphMap && iconMap && patternMap) {
@@ -17851,10 +21101,10 @@ WorkerTile.prototype.parse = function parse (data, layerIndex, actor, callback) 
             for (var key in buckets) {
                 var bucket = buckets[key];
                 if (bucket instanceof __chunk_1.SymbolBucket) {
-                    recalculateLayers(bucket.layers, this$1.zoom);
-                    performSymbolLayout(bucket, glyphMap, glyphAtlas.positions, iconMap, imageAtlas.iconPositions, this$1.showCollisionBoxes);
+                    recalculateLayers(bucket.layers, this.zoom);
+                    performSymbolLayout(bucket, glyphMap, glyphAtlas.positions, iconMap, imageAtlas.iconPositions, this.showCollisionBoxes);
                 } else if (bucket.hasPattern && (bucket instanceof __chunk_1.LineBucket || bucket instanceof __chunk_1.FillBucket || bucket instanceof __chunk_1.FillExtrusionBucket)) {
-                    recalculateLayers(bucket.layers, this$1.zoom);
+                    recalculateLayers(bucket.layers, this.zoom);
                     bucket.addFeatures(options, imageAtlas.patternPositions);
                 }
             }
@@ -18147,6 +21397,9 @@ function rewind(gj, outer) {
     case 'FeatureCollection':
         gj.features = gj.features.map(curryOuter(rewind, outer));
         return gj;
+    case 'GeometryCollection':
+        gj.geometries = gj.geometries.map(curryOuter(rewind, outer));
+        return gj;
     case 'Feature':
         gj.geometry = rewind(gj.geometry, outer);
         return gj;
@@ -18196,11 +21449,9 @@ var FeatureWrapper = function FeatureWrapper(feature) {
     }
 };
 FeatureWrapper.prototype.loadGeometry = function loadGeometry () {
-        var this$1 = this;
-
     if (this._feature.type === 1) {
         var geometry = [];
-        for (var i = 0, list = this$1._feature.geometry; i < list.length; i += 1) {
+        for (var i = 0, list = this._feature.geometry; i < list.length; i += 1) {
             var point = list[i];
 
                 geometry.push([new __chunk_1.Point(point[0], point[1])]);
@@ -18208,7 +21459,7 @@ FeatureWrapper.prototype.loadGeometry = function loadGeometry () {
         return geometry;
     } else {
         var geometry$1 = [];
-        for (var i$2 = 0, list$2 = this$1._feature.geometry; i$2 < list$2.length; i$2 += 1) {
+        for (var i$2 = 0, list$2 = this._feature.geometry; i$2 < list$2.length; i$2 += 1) {
             var ring = list$2[i$2];
 
                 var newRing = [];
@@ -18254,8 +21505,6 @@ function FeatureWrapper$1(feature, extent) {
     this.extent = extent || 4096;
 }
 FeatureWrapper$1.prototype.loadGeometry = function () {
-    var this$1 = this;
-
     var rings = this.rawGeometry;
     this.geometry = [];
     for (var i = 0; i < rings.length; i++) {
@@ -18264,7 +21513,7 @@ FeatureWrapper$1.prototype.loadGeometry = function () {
         for (var j = 0; j < ring.length; j++) {
             newRing.push(new __chunk_1.Point$1(ring[j][0], ring[j][1]));
         }
-        this$1.geometry.push(newRing);
+        this.geometry.push(newRing);
     }
     return this.geometry;
 };
@@ -18414,7 +21663,7 @@ function writeGeometry(feature, pbf) {
             y += dy;
         }
         if (type === 3) {
-            pbf.writeVarint(command(7, 0));
+            pbf.writeVarint(command(7, 1));
         }
     }
 }
@@ -18616,7 +21865,6 @@ var defaultOptions = {
     nodeSize: 64,
     log: false,
     reduce: null,
-    initial: function () { return ({}); },
     map: function (props) { return props; }
 };
 var Supercluster = function Supercluster(options) {
@@ -18624,8 +21872,6 @@ var Supercluster = function Supercluster(options) {
     this.trees = new Array(this.options.maxZoom + 1);
 };
 Supercluster.prototype.load = function load (points) {
-        var this$1 = this;
-
     var ref = this.options;
         var log = ref.log;
         var minZoom = ref.minZoom;
@@ -18648,8 +21894,8 @@ Supercluster.prototype.load = function load (points) {
         { console.timeEnd(timerId); }
     for (var z = maxZoom; z >= minZoom; z--) {
         var now = +Date.now();
-        clusters = this$1._cluster(clusters, z);
-        this$1.trees[z] = new KDBush(clusters, getX, getY, nodeSize, Float32Array);
+        clusters = this._cluster(clusters, z);
+        this.trees[z] = new KDBush(clusters, getX, getY, nodeSize, Float32Array);
         if (log)
             { console.log('z%d: %d clusters in %dms', z, clusters.length, +Date.now() - now); }
     }
@@ -18658,8 +21904,6 @@ Supercluster.prototype.load = function load (points) {
     return this;
 };
 Supercluster.prototype.getClusters = function getClusters (bbox, zoom) {
-        var this$1 = this;
-
     var minLng = ((bbox[0] + 180) % 360 + 360) % 360 - 180;
     var minLat = Math.max(-90, Math.min(90, bbox[1]));
     var maxLng = bbox[2] === 180 ? 180 : ((bbox[2] + 180) % 360 + 360) % 360 - 180;
@@ -18689,13 +21933,11 @@ Supercluster.prototype.getClusters = function getClusters (bbox, zoom) {
         var id = list[i];
 
             var c = tree.points[id];
-        clusters.push(c.numPoints ? getClusterJSON(c) : this$1.points[c.index]);
+        clusters.push(c.numPoints ? getClusterJSON(c) : this.points[c.index]);
     }
     return clusters;
 };
 Supercluster.prototype.getChildren = function getChildren (clusterId) {
-        var this$1 = this;
-
     var originId = clusterId >> 5;
     var originZoom = clusterId % 32;
     var errorMsg = 'No cluster with the specified id.';
@@ -18713,7 +21955,7 @@ Supercluster.prototype.getChildren = function getChildren (clusterId) {
 
             var c = index.points[id];
         if (c.parentId === clusterId) {
-            children.push(c.numPoints ? getClusterJSON(c) : this$1.points[c.index]);
+            children.push(c.numPoints ? getClusterJSON(c) : this.points[c.index]);
         }
     }
     if (children.length === 0)
@@ -18747,11 +21989,9 @@ Supercluster.prototype.getTile = function getTile (z, x, y) {
     return tile.features.length ? tile : null;
 };
 Supercluster.prototype.getClusterExpansionZoom = function getClusterExpansionZoom (clusterId) {
-        var this$1 = this;
-
     var clusterZoom = clusterId % 32 - 1;
     while (clusterZoom <= this.options.maxZoom) {
-        var children = this$1.getChildren(clusterId);
+        var children = this.getChildren(clusterId);
         clusterZoom++;
         if (children.length !== 1)
             { break; }
@@ -18760,8 +22000,6 @@ Supercluster.prototype.getClusterExpansionZoom = function getClusterExpansionZoo
     return clusterZoom;
 };
 Supercluster.prototype._appendLeaves = function _appendLeaves (result, clusterId, limit, offset, skipped) {
-        var this$1 = this;
-
     var children = this.getChildren(clusterId);
     for (var i = 0, list = children; i < list.length; i += 1) {
         var child = list[i];
@@ -18771,7 +22009,7 @@ Supercluster.prototype._appendLeaves = function _appendLeaves (result, clusterId
             if (skipped + props.point_count <= offset) {
                 skipped += props.point_count;
             } else {
-                skipped = this$1._appendLeaves(result, props.cluster_id, limit, offset, skipped);
+                skipped = this._appendLeaves(result, props.cluster_id, limit, offset, skipped);
             }
         } else if (skipped < offset) {
             skipped++;
@@ -18784,8 +22022,6 @@ Supercluster.prototype._appendLeaves = function _appendLeaves (result, clusterId
     return skipped;
 };
 Supercluster.prototype._addTileFeatures = function _addTileFeatures (ids, points, x, y, z2, tile) {
-        var this$1 = this;
-
     for (var i$1 = 0, list = ids; i$1 < list.length; i$1 += 1) {
         var i = list[i$1];
 
@@ -18793,12 +22029,12 @@ Supercluster.prototype._addTileFeatures = function _addTileFeatures (ids, points
         var f = {
             type: 1,
             geometry: [[
-                    Math.round(this$1.options.extent * (c.x * z2 - x)),
-                    Math.round(this$1.options.extent * (c.y * z2 - y))
+                    Math.round(this.options.extent * (c.x * z2 - x)),
+                    Math.round(this.options.extent * (c.y * z2 - y))
                 ]],
-            tags: c.numPoints ? getClusterProperties(c) : this$1.points[c.index].properties
+            tags: c.numPoints ? getClusterProperties(c) : this.points[c.index].properties
         };
-        var id = c.numPoints ? c.id : this$1.points[c.index].id;
+        var id = c.numPoints ? c.id : this.points[c.index].id;
         if (id !== undefined) {
             f.id = id;
         }
@@ -18809,30 +22045,23 @@ Supercluster.prototype._limitZoom = function _limitZoom (z) {
     return Math.max(this.options.minZoom, Math.min(z, this.options.maxZoom + 1));
 };
 Supercluster.prototype._cluster = function _cluster (points, zoom) {
-        var this$1 = this;
-
     var clusters = [];
     var ref = this.options;
         var radius = ref.radius;
         var extent = ref.extent;
         var reduce = ref.reduce;
-        var initial = ref.initial;
     var r = radius / (extent * Math.pow(2, zoom));
     for (var i = 0; i < points.length; i++) {
         var p = points[i];
         if (p.zoom <= zoom)
             { continue; }
         p.zoom = zoom;
-        var tree = this$1.trees[zoom + 1];
+        var tree = this.trees[zoom + 1];
         var neighborIds = tree.within(p.x, p.y, r);
         var numPoints = p.numPoints || 1;
         var wx = p.x * numPoints;
         var wy = p.y * numPoints;
-        var clusterProperties = null;
-        if (reduce) {
-            clusterProperties = initial();
-            this$1._accumulate(clusterProperties, p);
-        }
+        var clusterProperties = reduce ? this._map(p, true) : null;
         var id = (i << 5) + (zoom + 1);
         for (var i$1 = 0, list = neighborIds; i$1 < list.length; i$1 += 1) {
             var neighborId = list[i$1];
@@ -18847,7 +22076,7 @@ Supercluster.prototype._cluster = function _cluster (points, zoom) {
             numPoints += numPoints2;
             b.parentId = id;
             if (reduce) {
-                this$1._accumulate(clusterProperties, b);
+                reduce(clusterProperties, this._map(b));
             }
         }
         if (numPoints === 1) {
@@ -18859,12 +22088,13 @@ Supercluster.prototype._cluster = function _cluster (points, zoom) {
     }
     return clusters;
 };
-Supercluster.prototype._accumulate = function _accumulate (clusterProperties, point) {
-    var ref = this.options;
-        var map = ref.map;
-        var reduce = ref.reduce;
-    var properties = point.numPoints ? point.properties : map(this.points[point.index].properties);
-    reduce(clusterProperties, properties);
+Supercluster.prototype._map = function _map (point, clone) {
+    if (point.numPoints) {
+        return clone ? extend({}, point.properties) : point.properties;
+    }
+    var original = this.points[point.index].properties;
+    var result = this.options.map(original);
+    return clone && result === original ? extend({}, result) : result;
 };
 function createCluster(x, y, id, numPoints, properties) {
     return {
@@ -19552,8 +22782,6 @@ GeoJSONVT.prototype.options = {
     debug: 0
 };
 GeoJSONVT.prototype.splitTile = function (features, z, x, y, cz, cx, cy) {
-    var this$1 = this;
-
     var stack = [
             features,
             z,
@@ -19565,12 +22793,12 @@ GeoJSONVT.prototype.splitTile = function (features, z, x, y, cz, cx, cy) {
         x = stack.pop();
         z = stack.pop();
         features = stack.pop();
-        var z2 = 1 << z, id = toID(z, x, y), tile = this$1.tiles[id];
+        var z2 = 1 << z, id = toID(z, x, y), tile = this.tiles[id];
         if (!tile) {
             if (debug > 1)
                 { console.time('creation'); }
-            tile = this$1.tiles[id] = createTile(features, z, x, y, options);
-            this$1.tileCoords.push({
+            tile = this.tiles[id] = createTile(features, z, x, y, options);
+            this.tileCoords.push({
                 z: z,
                 x: x,
                 y: y
@@ -19581,8 +22809,8 @@ GeoJSONVT.prototype.splitTile = function (features, z, x, y, cz, cx, cy) {
                     console.timeEnd('creation');
                 }
                 var key = 'z' + z;
-                this$1.stats[key] = (this$1.stats[key] || 0) + 1;
-                this$1.total++;
+                this.stats[key] = (this.stats[key] || 0) + 1;
+                this.total++;
             }
         }
         tile.source = features;
@@ -19625,8 +22853,6 @@ GeoJSONVT.prototype.splitTile = function (features, z, x, y, cz, cx, cy) {
     }
 };
 GeoJSONVT.prototype.getTile = function (z, x, y) {
-    var this$1 = this;
-
     var options = this.options, extent = options.extent, debug = options.debug;
     if (z < 0 || z > 24)
         { return null; }
@@ -19642,7 +22868,7 @@ GeoJSONVT.prototype.getTile = function (z, x, y) {
         z0--;
         x0 = Math.floor(x0 / 2);
         y0 = Math.floor(y0 / 2);
-        parent = this$1.tiles[toID(z0, x0, y0)];
+        parent = this.tiles[toID(z0, x0, y0)];
     }
     if (!parent || !parent.source)
         { return null; }
@@ -19683,7 +22909,7 @@ function loadGeoJSONTile(params, callback) {
         rawData: pbf.buffer
     });
 }
-var GeoJSONWorkerSource = (function (VectorTileWorkerSource$$1) {
+var GeoJSONWorkerSource = /*@__PURE__*/(function (VectorTileWorkerSource$$1) {
     function GeoJSONWorkerSource(actor, layerIndex, loadGeoJSON) {
         VectorTileWorkerSource$$1.call(this, actor, layerIndex, loadGeoJSONTile);
         if (loadGeoJSON) {
@@ -19726,7 +22952,7 @@ var GeoJSONWorkerSource = (function (VectorTileWorkerSource$$1) {
             } else {
                 geojsonRewind(data, true);
                 try {
-                    this$1._geoJSONIndex = params.cluster ? new Supercluster(params.superclusterOptions).load(data.features) : geojsonvt(data, params.geojsonVtOptions);
+                    this$1._geoJSONIndex = params.cluster ? new Supercluster(getSuperclusterOptions(params)).load(data.features) : geojsonvt(data, params.geojsonVtOptions);
                 } catch (err) {
                     return callback(err);
                 }
@@ -19790,6 +23016,59 @@ var GeoJSONWorkerSource = (function (VectorTileWorkerSource$$1) {
 
     return GeoJSONWorkerSource;
 }(VectorTileWorkerSource));
+function getSuperclusterOptions(ref) {
+    var superclusterOptions = ref.superclusterOptions;
+    var clusterProperties = ref.clusterProperties;
+
+    if (!clusterProperties || !superclusterOptions)
+        { return superclusterOptions; }
+    var mapExpressions = {};
+    var reduceExpressions = {};
+    var globals = {
+        accumulated: null,
+        zoom: 0
+    };
+    var feature = { properties: null };
+    var propertyNames = Object.keys(clusterProperties);
+    for (var i = 0, list = propertyNames; i < list.length; i += 1) {
+        var key = list[i];
+
+        var ref$1 = clusterProperties[key];
+        var operator = ref$1[0];
+        var mapExpression = ref$1[1];
+        var mapExpressionParsed = __chunk_1.createExpression(mapExpression);
+        var reduceExpressionParsed = __chunk_1.createExpression(typeof operator === 'string' ? [
+            operator,
+            ['accumulated'],
+            [
+                'get',
+                key
+            ]
+        ] : operator);
+        mapExpressions[key] = mapExpressionParsed.value;
+        reduceExpressions[key] = reduceExpressionParsed.value;
+    }
+    superclusterOptions.map = function (pointProperties) {
+        feature.properties = pointProperties;
+        var properties = {};
+        for (var i = 0, list = propertyNames; i < list.length; i += 1) {
+            var key = list[i];
+
+            properties[key] = mapExpressions[key].evaluate(globals, feature);
+        }
+        return properties;
+    };
+    superclusterOptions.reduce = function (accumulated, clusterProperties) {
+        feature.properties = clusterProperties;
+        for (var i = 0, list = propertyNames; i < list.length; i += 1) {
+            var key = list[i];
+
+            globals.accumulated = accumulated[key];
+            accumulated[key] = reduceExpressions[key].evaluate(globals, feature);
+        }
+    };
+    return superclusterOptions;
+}
 
 var Worker$1 = function Worker(self) {
     var this$1 = this;
@@ -20198,19 +23477,17 @@ ImageManager.prototype.isLoaded = function isLoaded () {
     return this.loaded;
 };
 ImageManager.prototype.setLoaded = function setLoaded (loaded) {
-        var this$1 = this;
-
     if (this.loaded === loaded) {
         return;
     }
     this.loaded = loaded;
     if (loaded) {
-        for (var i = 0, list = this$1.requestors; i < list.length; i += 1) {
+        for (var i = 0, list = this.requestors; i < list.length; i += 1) {
             var ref = list[i];
                 var ids = ref.ids;
                 var callback = ref.callback;
 
-                this$1._notify(ids, callback);
+                this._notify(ids, callback);
         }
         this.requestors = [];
     }
@@ -20229,14 +23506,12 @@ ImageManager.prototype.listImages = function listImages () {
     return Object.keys(this.images);
 };
 ImageManager.prototype.getImages = function getImages (ids, callback) {
-        var this$1 = this;
-
     var hasAllDependencies = true;
     if (!this.isLoaded()) {
         for (var i = 0, list = ids; i < list.length; i += 1) {
             var id = list[i];
 
-                if (!this$1.images[id]) {
+                if (!this.images[id]) {
                 hasAllDependencies = false;
             }
         }
@@ -20251,13 +23526,11 @@ ImageManager.prototype.getImages = function getImages (ids, callback) {
     }
 };
 ImageManager.prototype._notify = function _notify (ids, callback) {
-        var this$1 = this;
-
     var response = {};
     for (var i = 0, list = ids; i < list.length; i += 1) {
         var id = list[i];
 
-            var image = this$1.images[id];
+            var image = this.images[id];
         if (image) {
             response[id] = {
                 data: image.data.clone(),
@@ -20313,11 +23586,9 @@ ImageManager.prototype.bind = function bind (context) {
     this.atlasTexture.bind(gl.LINEAR, gl.CLAMP_TO_EDGE);
 };
 ImageManager.prototype._updatePatternAtlas = function _updatePatternAtlas () {
-        var this$1 = this;
-
     var bins = [];
-    for (var id in this$1.patterns) {
-        bins.push(this$1.patterns[id].bin);
+    for (var id in this.patterns) {
+        bins.push(this.patterns[id].bin);
     }
     var ref = __chunk_1.potpack(bins);
         var w = ref.w;
@@ -20327,12 +23598,12 @@ ImageManager.prototype._updatePatternAtlas = function _updatePatternAtlas () {
         width: w || 1,
         height: h || 1
     });
-    for (var id$1 in this$1.patterns) {
-        var ref$1 = this$1.patterns[id$1];
+    for (var id$1 in this.patterns) {
+        var ref$1 = this.patterns[id$1];
             var bin = ref$1.bin;
         var x = bin.x + padding;
         var y = bin.y + padding;
-        var src = this$1.images[id$1].data;
+        var src = this.images[id$1].data;
         var w$1 = src.width;
         var h$1 = src.height;
         __chunk_1.RGBAImage.copy(src, dst, {
@@ -20433,22 +23704,20 @@ function TinySDF(fontSize, buffer, radius, cutoff, fontFamily, fontWeight) {
     this.middle = Math.round(size / 2 * (navigator.userAgent.indexOf('Gecko/') >= 0 ? 1.2 : 1));
 }
 TinySDF.prototype.draw = function (char) {
-    var this$1 = this;
-
     this.ctx.clearRect(0, 0, this.size, this.size);
     this.ctx.fillText(char, this.buffer, this.middle);
     var imgData = this.ctx.getImageData(0, 0, this.size, this.size);
     var alphaChannel = new Uint8ClampedArray(this.size * this.size);
     for (var i = 0; i < this.size * this.size; i++) {
         var a = imgData.data[i * 4 + 3] / 255;
-        this$1.gridOuter[i] = a === 1 ? 0 : a === 0 ? INF : Math.pow(Math.max(0, 0.5 - a), 2);
-        this$1.gridInner[i] = a === 1 ? INF : a === 0 ? 0 : Math.pow(Math.max(0, a - 0.5), 2);
+        this.gridOuter[i] = a === 1 ? 0 : a === 0 ? INF : Math.pow(Math.max(0, 0.5 - a), 2);
+        this.gridInner[i] = a === 1 ? INF : a === 0 ? 0 : Math.pow(Math.max(0, a - 0.5), 2);
     }
     edt(this.gridOuter, this.size, this.size, this.f, this.d, this.v, this.z);
     edt(this.gridInner, this.size, this.size, this.f, this.d, this.v, this.z);
     for (i = 0; i < this.size * this.size; i++) {
-        var d = this$1.gridOuter[i] - this$1.gridInner[i];
-        alphaChannel[i] = Math.max(0, Math.min(255, Math.round(255 - 255 * (d / this$1.radius + this$1.cutoff))));
+        var d = this.gridOuter[i] - this.gridInner[i];
+        alphaChannel[i] = Math.max(0, Math.min(255, Math.round(255 - 255 * (d / this.radius + this.cutoff))));
     }
     return alphaChannel;
 };
@@ -20657,7 +23926,7 @@ var properties = new __chunk_1.Properties({
     'intensity': new __chunk_1.DataConstantProperty(__chunk_1.styleSpec.light.intensity)
 });
 var TRANSITION_SUFFIX = '-transition';
-var Light = (function (Evented) {
+var Light = /*@__PURE__*/(function (Evented) {
     function Light(lightOptions) {
         Evented.call(this);
         this._transitionable = new __chunk_1.Transitionable(properties);
@@ -20672,7 +23941,6 @@ var Light = (function (Evented) {
         return this._transitionable.serialize();
     };
     Light.prototype.setLight = function setLight (light, options) {
-        var this$1 = this;
         if ( options === void 0 ) options = {};
 
         if (this._validate(__chunk_1.validateLight, light, options)) {
@@ -20681,9 +23949,9 @@ var Light = (function (Evented) {
         for (var name in light) {
             var value = light[name];
             if (__chunk_1.endsWith(name, TRANSITION_SUFFIX)) {
-                this$1._transitionable.setTransition(name.slice(0, -TRANSITION_SUFFIX.length), value);
+                this._transitionable.setTransition(name.slice(0, -TRANSITION_SUFFIX.length), value);
             } else {
-                this$1._transitionable.setValue(name, value);
+                this._transitionable.setValue(name, value);
             }
         }
     };
@@ -20729,8 +23997,6 @@ LineAtlas.prototype.getDash = function getDash (dasharray, round) {
     return this.positions[key];
 };
 LineAtlas.prototype.addDash = function addDash (dasharray, round) {
-        var this$1 = this;
-
     var n = round ? 7 : 0;
     var height = 2 * n + 1;
     var offset = 128;
@@ -20746,8 +24012,8 @@ LineAtlas.prototype.addDash = function addDash (dasharray, round) {
     var halfWidth = stretch / 2;
     var oddLength = dasharray.length % 2 === 1;
     for (var y = -n; y <= n; y++) {
-        var row = this$1.nextRow + n + y;
-        var index = this$1.width * row;
+        var row = this.nextRow + n + y;
+        var index = this.width * row;
         var left = oddLength ? -dasharray[dasharray.length - 1] : 0;
         var right = dasharray[0];
         var partIndex = 1;
@@ -20776,7 +24042,7 @@ LineAtlas.prototype.addDash = function addDash (dasharray, round) {
             } else {
                 signedDistance = (inside ? 1 : -1) * dist;
             }
-            this$1.data[3 + (index + x) * 4] = Math.max(0, Math.min(255, signedDistance + offset));
+            this.data[3 + (index + x) * 4] = Math.max(0, Math.min(255, signedDistance + offset));
         }
     }
     var pos = {
@@ -20808,8 +24074,6 @@ LineAtlas.prototype.bind = function bind (context) {
 };
 
 var Dispatcher = function Dispatcher(workerPool, parent) {
-    var this$1 = this;
-
     this.workerPool = workerPool;
     this.actors = [];
     this.currentActor = 0;
@@ -20817,9 +24081,9 @@ var Dispatcher = function Dispatcher(workerPool, parent) {
     var workers = this.workerPool.acquire(this.id);
     for (var i = 0; i < workers.length; i++) {
         var worker = workers[i];
-        var actor = new Dispatcher.Actor(worker, parent, this$1.id);
+        var actor = new Dispatcher.Actor(worker, parent, this.id);
         actor.name = "Worker " + i;
-        this$1.actors.push(actor);
+        this.actors.push(actor);
     }
 };
 Dispatcher.prototype.broadcast = function broadcast (type, data, cb) {
@@ -20909,7 +24173,7 @@ TileBounds.prototype.contains = function contains (tileID) {
     return hit;
 };
 
-var VectorTileSource = (function (Evented) {
+var VectorTileSource = /*@__PURE__*/(function (Evented) {
     function VectorTileSource(id, options, dispatcher, eventedParent) {
         Evented.call(this);
         this.id = id;
@@ -21039,7 +24303,7 @@ var VectorTileSource = (function (Evented) {
     return VectorTileSource;
 }(__chunk_1.Evented));
 
-var RasterTileSource = (function (Evented) {
+var RasterTileSource = /*@__PURE__*/(function (Evented) {
     function RasterTileSource(id, options, dispatcher, eventedParent) {
         Evented.call(this);
         this.id = id;
@@ -21157,7 +24421,7 @@ var RasterTileSource = (function (Evented) {
     return RasterTileSource;
 }(__chunk_1.Evented));
 
-var RasterDEMTileSource = (function (RasterTileSource$$1) {
+var RasterDEMTileSource = /*@__PURE__*/(function (RasterTileSource$$1) {
     function RasterDEMTileSource(id, options, dispatcher, eventedParent) {
         RasterTileSource$$1.call(this, id, options, dispatcher, eventedParent);
         this.type = 'raster-dem';
@@ -21264,7 +24528,7 @@ var RasterDEMTileSource = (function (RasterTileSource$$1) {
     return RasterDEMTileSource;
 }(RasterTileSource));
 
-var GeoJSONSource = (function (Evented) {
+var GeoJSONSource = /*@__PURE__*/(function (Evented) {
     function GeoJSONSource(id, options, dispatcher, eventedParent) {
         Evented.call(this);
         this.id = id;
@@ -21304,7 +24568,8 @@ var GeoJSONSource = (function (Evented) {
                 extent: __chunk_1.EXTENT,
                 radius: (options.clusterRadius || 50) * scale,
                 log: false
-            }
+            },
+            clusterProperties: options.clusterProperties
         }, options.workerOptions);
     }
 
@@ -21460,7 +24725,7 @@ var GeoJSONSource = (function (Evented) {
     return GeoJSONSource;
 }(__chunk_1.Evented));
 
-var ImageSource = (function (Evented) {
+var ImageSource = /*@__PURE__*/(function (Evented) {
     function ImageSource(id, options, dispatcher, eventedParent) {
         Evented.call(this);
         this.id = id;
@@ -21547,8 +24812,6 @@ var ImageSource = (function (Evented) {
         return this;
     };
     ImageSource.prototype.prepare = function prepare () {
-        var this$1 = this;
-
         if (Object.keys(this.tiles).length === 0 || !this.image) {
             return;
         }
@@ -21564,11 +24827,11 @@ var ImageSource = (function (Evented) {
             this.texture = new __chunk_1.Texture(context, this.image, gl.RGBA);
             this.texture.bind(gl.LINEAR, gl.CLAMP_TO_EDGE);
         }
-        for (var w in this$1.tiles) {
-            var tile = this$1.tiles[w];
+        for (var w in this.tiles) {
+            var tile = this.tiles[w];
             if (tile.state !== 'loaded') {
                 tile.state = 'loaded';
-                tile.texture = this$1.texture;
+                tile.texture = this.texture;
             }
         }
     };
@@ -21616,7 +24879,7 @@ function getCoordinatesCenterTileID(coords) {
     return new __chunk_1.CanonicalTileID(zoom, Math.floor((minX + maxX) / 2 * tilesAtZoom), Math.floor((minY + maxY) / 2 * tilesAtZoom));
 }
 
-var VideoSource = (function (ImageSource$$1) {
+var VideoSource = /*@__PURE__*/(function (ImageSource$$1) {
     function VideoSource(id, options, dispatcher, eventedParent) {
         ImageSource$$1.call(this, id, options, dispatcher, eventedParent);
         this.roundZoom = true;
@@ -21635,7 +24898,7 @@ var VideoSource = (function (ImageSource$$1) {
         for (var i = 0, list = options.urls; i < list.length; i += 1) {
             var url = list[i];
 
-            this$1.urls.push(this$1.map._transformRequest(url, __chunk_1.ResourceType.Source).url);
+            this.urls.push(this.map._transformRequest(url, __chunk_1.ResourceType.Source).url);
         }
         __chunk_1.getVideo(this.urls, function (err, video) {
             if (err) {
@@ -21667,8 +24930,6 @@ var VideoSource = (function (ImageSource$$1) {
         }
     };
     VideoSource.prototype.prepare = function prepare () {
-        var this$1 = this;
-
         if (Object.keys(this.tiles).length === 0 || this.video.readyState < 2) {
             return;
         }
@@ -21687,11 +24948,11 @@ var VideoSource = (function (ImageSource$$1) {
             this.texture.bind(gl.LINEAR, gl.CLAMP_TO_EDGE);
             gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, this.video);
         }
-        for (var w in this$1.tiles) {
-            var tile = this$1.tiles[w];
+        for (var w in this.tiles) {
+            var tile = this.tiles[w];
             if (tile.state !== 'loaded') {
                 tile.state = 'loaded';
-                tile.texture = this$1.texture;
+                tile.texture = this.texture;
             }
         }
     };
@@ -21709,7 +24970,7 @@ var VideoSource = (function (ImageSource$$1) {
     return VideoSource;
 }(ImageSource));
 
-var CanvasSource = (function (ImageSource$$1) {
+var CanvasSource = /*@__PURE__*/(function (ImageSource$$1) {
     function CanvasSource(id, options, dispatcher, eventedParent) {
         ImageSource$$1.call(this, id, options, dispatcher, eventedParent);
         if (!options.coordinates) {
@@ -21766,8 +25027,6 @@ var CanvasSource = (function (ImageSource$$1) {
         this.pause();
     };
     CanvasSource.prototype.prepare = function prepare () {
-        var this$1 = this;
-
         var resize = false;
         if (this.canvas.width !== this.width) {
             this.width = this.canvas.width;
@@ -21794,11 +25053,11 @@ var CanvasSource = (function (ImageSource$$1) {
         } else if (resize || this._playing) {
             this.texture.update(this.canvas, { premultiply: true });
         }
-        for (var w in this$1.tiles) {
-            var tile = this$1.tiles[w];
+        for (var w in this.tiles) {
+            var tile = this.tiles[w];
             if (tile.state !== 'loaded') {
                 tile.state = 'loaded';
-                tile.texture = this$1.texture;
+                tile.texture = this.texture;
             }
         }
     };
@@ -21812,11 +25071,9 @@ var CanvasSource = (function (ImageSource$$1) {
         return this._playing;
     };
     CanvasSource.prototype._hasInvalidDimensions = function _hasInvalidDimensions () {
-        var this$1 = this;
-
         for (var i = 0, list = [
-                this$1.canvas.width,
-                this$1.canvas.height
+                this.canvas.width,
+                this.canvas.height
             ]; i < list.length; i += 1) {
             var x = list[i];
 
@@ -21859,9 +25116,44 @@ var setType = function (name, type) {
     sourceTypes[name] = type;
 };
 
+function getPixelPosMatrix(transform, tileID) {
+    var t = __chunk_1.identity([]);
+    __chunk_1.translate(t, t, [
+        1,
+        1,
+        0
+    ]);
+    __chunk_1.scale(t, t, [
+        transform.width * 0.5,
+        transform.height * 0.5,
+        1
+    ]);
+    return __chunk_1.multiply(t, t, transform.calculatePosMatrix(tileID.toUnwrapped()));
+}
+function queryIncludes3DLayer(layers, styleLayers, sourceID) {
+    if (layers) {
+        for (var i = 0, list = layers; i < list.length; i += 1) {
+            var layerID = list[i];
+
+            var layer = styleLayers[layerID];
+            if (layer && layer.source === sourceID && layer.type === 'fill-extrusion') {
+                return true;
+            }
+        }
+    } else {
+        for (var key in styleLayers) {
+            var layer$1 = styleLayers[key];
+            if (layer$1.source === sourceID && layer$1.type === 'fill-extrusion') {
+                return true;
+            }
+        }
+    }
+    return false;
+}
 function queryRenderedFeatures(sourceCache, styleLayers, queryGeometry, params, transform) {
+    var has3DLayer = queryIncludes3DLayer(params && params.layers, styleLayers, sourceCache.id);
     var maxPitchScaleFactor = transform.maxPitchScaleFactor();
-    var tilesIn = sourceCache.tilesIn(queryGeometry, maxPitchScaleFactor);
+    var tilesIn = sourceCache.tilesIn(queryGeometry, maxPitchScaleFactor, has3DLayer);
     tilesIn.sort(sortTilesIn);
     var renderedFeatureLayers = [];
     for (var i = 0, list = tilesIn; i < list.length; i += 1) {
@@ -21869,12 +25161,13 @@ function queryRenderedFeatures(sourceCache, styleLayers, queryGeometry, params, 
 
         renderedFeatureLayers.push({
             wrappedTileID: tileIn.tileID.wrapped().key,
-            queryResults: tileIn.tile.queryRenderedFeatures(styleLayers, sourceCache._state, tileIn.queryGeometry, tileIn.scale, params, transform, maxPitchScaleFactor, sourceCache.transform.calculatePosMatrix(tileIn.tileID.toUnwrapped()))
+            queryResults: tileIn.tile.queryRenderedFeatures(styleLayers, sourceCache._state, tileIn.queryGeometry, tileIn.cameraQueryGeometry, tileIn.scale, params, transform, maxPitchScaleFactor, getPixelPosMatrix(sourceCache.transform, tileIn.tileID))
         });
     }
     var result = mergeRenderedFeatureLayers(renderedFeatureLayers);
     for (var layerID in result) {
-        result[layerID].forEach(function (feature) {
+        result[layerID].forEach(function (featureWrapper) {
+            var feature = featureWrapper.feature;
             var state = sourceCache.getFeatureState(feature.layer['source-layer'], feature.id);
             feature.source = feature.layer.source;
             if (feature.layer['source-layer']) {
@@ -21915,14 +25208,15 @@ function queryRenderedSymbols(styleLayers, sourceCaches, queryGeometry, params, 
             for (var i$1 = 0, list$1 = layerSymbols; i$1 < list$1.length; i$1 += 1) {
                 var symbolFeature = list$1[i$1];
 
-                resultFeatures.push(symbolFeature.feature);
+                resultFeatures.push(symbolFeature);
             }
         }
     };
 
     for (var i$2 = 0, list$2 = bucketQueryData; i$2 < list$2.length; i$2 += 1) loop();
     var loop$1 = function ( layerName ) {
-        result[layerName].forEach(function (feature) {
+        result[layerName].forEach(function (featureWrapper) {
+            var feature = featureWrapper.feature;
             var layer = styleLayers[layerName];
             var sourceCache = sourceCaches[layer.source];
             var state = sourceCache.getFeatureState(feature.layer['source-layer'], feature.id);
@@ -21976,7 +25270,7 @@ function mergeRenderedFeatureLayers(tiles) {
 
                 if (!wrappedIDFeatures[tileFeature.featureIndex]) {
                     wrappedIDFeatures[tileFeature.featureIndex] = true;
-                    resultFeatures.push(tileFeature.feature);
+                    resultFeatures.push(tileFeature);
                 }
             }
         }
@@ -21990,15 +25284,13 @@ var TileCache = function TileCache(max, onRemove) {
     this.reset();
 };
 TileCache.prototype.reset = function reset () {
-        var this$1 = this;
-
-    for (var key in this$1.data) {
-        for (var i = 0, list = this$1.data[key]; i < list.length; i += 1) {
+    for (var key in this.data) {
+        for (var i = 0, list = this.data[key]; i < list.length; i += 1) {
             var removedData = list[i];
 
                 if (removedData.timeout)
                 { clearTimeout(removedData.timeout); }
-            this$1.onRemove(removedData.value);
+            this.onRemove(removedData.value);
         }
     }
     this.data = {};
@@ -22074,13 +25366,11 @@ TileCache.prototype.remove = function remove (tileID, value) {
     return this;
 };
 TileCache.prototype.setMaxSize = function setMaxSize (max) {
-        var this$1 = this;
-
     this.max = max;
     while (this.order.length > this.max) {
-        var removedData = this$1._getAndRemoveByKey(this$1.order[0]);
+        var removedData = this._getAndRemoveByKey(this.order[0]);
         if (removedData)
-            { this$1.onRemove(removedData); }
+            { this.onRemove(removedData); }
     }
     return this;
 };
@@ -22146,10 +25436,8 @@ VertexBuffer.prototype.updateData = function updateData (array) {
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, array.arrayBuffer);
 };
 VertexBuffer.prototype.enableAttributes = function enableAttributes (gl, program) {
-        var this$1 = this;
-
     for (var j = 0; j < this.attributes.length; j++) {
-        var member = this$1.attributes[j];
+        var member = this.attributes[j];
         var attribIndex = program.attributes[member.name];
         if (attribIndex !== undefined) {
             gl.enableVertexAttribArray(attribIndex);
@@ -22157,13 +25445,11 @@ VertexBuffer.prototype.enableAttributes = function enableAttributes (gl, program
     }
 };
 VertexBuffer.prototype.setVertexAttribPointers = function setVertexAttribPointers (gl, program, vertexOffset) {
-        var this$1 = this;
-
     for (var j = 0; j < this.attributes.length; j++) {
-        var member = this$1.attributes[j];
+        var member = this.attributes[j];
         var attribIndex = program.attributes[member.name];
         if (attribIndex !== undefined) {
-            gl.vertexAttribPointer(attribIndex, member.components, gl[AttributeType[member.type]], false, this$1.itemSize, member.offset + this$1.itemSize * (vertexOffset || 0));
+            gl.vertexAttribPointer(attribIndex, member.components, gl[AttributeType[member.type]], false, this.itemSize, member.offset + this.itemSize * (vertexOffset || 0));
         }
     }
 };
@@ -22192,7 +25478,7 @@ BaseValue.prototype.getDefault = function getDefault () {
 BaseValue.prototype.setDefault = function setDefault () {
     this.set(this.default);
 };
-var ClearColor = (function (BaseValue) {
+var ClearColor = /*@__PURE__*/(function (BaseValue) {
     function ClearColor () {
         BaseValue.apply(this, arguments);
     }
@@ -22215,7 +25501,7 @@ var ClearColor = (function (BaseValue) {
 
     return ClearColor;
 }(BaseValue));
-var ClearDepth = (function (BaseValue) {
+var ClearDepth = /*@__PURE__*/(function (BaseValue) {
     function ClearDepth () {
         BaseValue.apply(this, arguments);
     }
@@ -22237,7 +25523,7 @@ var ClearDepth = (function (BaseValue) {
 
     return ClearDepth;
 }(BaseValue));
-var ClearStencil = (function (BaseValue) {
+var ClearStencil = /*@__PURE__*/(function (BaseValue) {
     function ClearStencil () {
         BaseValue.apply(this, arguments);
     }
@@ -22259,7 +25545,7 @@ var ClearStencil = (function (BaseValue) {
 
     return ClearStencil;
 }(BaseValue));
-var ColorMask = (function (BaseValue) {
+var ColorMask = /*@__PURE__*/(function (BaseValue) {
     function ColorMask () {
         BaseValue.apply(this, arguments);
     }
@@ -22287,7 +25573,7 @@ var ColorMask = (function (BaseValue) {
 
     return ColorMask;
 }(BaseValue));
-var DepthMask = (function (BaseValue) {
+var DepthMask = /*@__PURE__*/(function (BaseValue) {
     function DepthMask () {
         BaseValue.apply(this, arguments);
     }
@@ -22309,7 +25595,7 @@ var DepthMask = (function (BaseValue) {
 
     return DepthMask;
 }(BaseValue));
-var StencilMask = (function (BaseValue) {
+var StencilMask = /*@__PURE__*/(function (BaseValue) {
     function StencilMask () {
         BaseValue.apply(this, arguments);
     }
@@ -22331,7 +25617,7 @@ var StencilMask = (function (BaseValue) {
 
     return StencilMask;
 }(BaseValue));
-var StencilFunc = (function (BaseValue) {
+var StencilFunc = /*@__PURE__*/(function (BaseValue) {
     function StencilFunc () {
         BaseValue.apply(this, arguments);
     }
@@ -22358,7 +25644,7 @@ var StencilFunc = (function (BaseValue) {
 
     return StencilFunc;
 }(BaseValue));
-var StencilOp = (function (BaseValue) {
+var StencilOp = /*@__PURE__*/(function (BaseValue) {
     function StencilOp () {
         BaseValue.apply(this, arguments);
     }
@@ -22386,7 +25672,7 @@ var StencilOp = (function (BaseValue) {
 
     return StencilOp;
 }(BaseValue));
-var StencilTest = (function (BaseValue) {
+var StencilTest = /*@__PURE__*/(function (BaseValue) {
     function StencilTest () {
         BaseValue.apply(this, arguments);
     }
@@ -22413,7 +25699,7 @@ var StencilTest = (function (BaseValue) {
 
     return StencilTest;
 }(BaseValue));
-var DepthRange = (function (BaseValue) {
+var DepthRange = /*@__PURE__*/(function (BaseValue) {
     function DepthRange () {
         BaseValue.apply(this, arguments);
     }
@@ -22439,7 +25725,7 @@ var DepthRange = (function (BaseValue) {
 
     return DepthRange;
 }(BaseValue));
-var DepthTest = (function (BaseValue) {
+var DepthTest = /*@__PURE__*/(function (BaseValue) {
     function DepthTest () {
         BaseValue.apply(this, arguments);
     }
@@ -22466,7 +25752,7 @@ var DepthTest = (function (BaseValue) {
 
     return DepthTest;
 }(BaseValue));
-var DepthFunc = (function (BaseValue) {
+var DepthFunc = /*@__PURE__*/(function (BaseValue) {
     function DepthFunc () {
         BaseValue.apply(this, arguments);
     }
@@ -22488,7 +25774,7 @@ var DepthFunc = (function (BaseValue) {
 
     return DepthFunc;
 }(BaseValue));
-var Blend = (function (BaseValue) {
+var Blend = /*@__PURE__*/(function (BaseValue) {
     function Blend () {
         BaseValue.apply(this, arguments);
     }
@@ -22515,7 +25801,7 @@ var Blend = (function (BaseValue) {
 
     return Blend;
 }(BaseValue));
-var BlendFunc = (function (BaseValue) {
+var BlendFunc = /*@__PURE__*/(function (BaseValue) {
     function BlendFunc () {
         BaseValue.apply(this, arguments);
     }
@@ -22542,7 +25828,7 @@ var BlendFunc = (function (BaseValue) {
 
     return BlendFunc;
 }(BaseValue));
-var BlendColor = (function (BaseValue) {
+var BlendColor = /*@__PURE__*/(function (BaseValue) {
     function BlendColor () {
         BaseValue.apply(this, arguments);
     }
@@ -22565,7 +25851,7 @@ var BlendColor = (function (BaseValue) {
 
     return BlendColor;
 }(BaseValue));
-var BlendEquation = (function (BaseValue) {
+var BlendEquation = /*@__PURE__*/(function (BaseValue) {
     function BlendEquation () {
         BaseValue.apply(this, arguments);
     }
@@ -22587,7 +25873,7 @@ var BlendEquation = (function (BaseValue) {
 
     return BlendEquation;
 }(BaseValue));
-var CullFace = (function (BaseValue) {
+var CullFace = /*@__PURE__*/(function (BaseValue) {
     function CullFace () {
         BaseValue.apply(this, arguments);
     }
@@ -22614,7 +25900,7 @@ var CullFace = (function (BaseValue) {
 
     return CullFace;
 }(BaseValue));
-var CullFaceSide = (function (BaseValue) {
+var CullFaceSide = /*@__PURE__*/(function (BaseValue) {
     function CullFaceSide () {
         BaseValue.apply(this, arguments);
     }
@@ -22636,7 +25922,7 @@ var CullFaceSide = (function (BaseValue) {
 
     return CullFaceSide;
 }(BaseValue));
-var FrontFace = (function (BaseValue) {
+var FrontFace = /*@__PURE__*/(function (BaseValue) {
     function FrontFace () {
         BaseValue.apply(this, arguments);
     }
@@ -22658,7 +25944,7 @@ var FrontFace = (function (BaseValue) {
 
     return FrontFace;
 }(BaseValue));
-var Program = (function (BaseValue) {
+var Program = /*@__PURE__*/(function (BaseValue) {
     function Program () {
         BaseValue.apply(this, arguments);
     }
@@ -22680,7 +25966,7 @@ var Program = (function (BaseValue) {
 
     return Program;
 }(BaseValue));
-var ActiveTextureUnit = (function (BaseValue) {
+var ActiveTextureUnit = /*@__PURE__*/(function (BaseValue) {
     function ActiveTextureUnit () {
         BaseValue.apply(this, arguments);
     }
@@ -22702,7 +25988,7 @@ var ActiveTextureUnit = (function (BaseValue) {
 
     return ActiveTextureUnit;
 }(BaseValue));
-var Viewport = (function (BaseValue) {
+var Viewport = /*@__PURE__*/(function (BaseValue) {
     function Viewport () {
         BaseValue.apply(this, arguments);
     }
@@ -22731,7 +26017,7 @@ var Viewport = (function (BaseValue) {
 
     return Viewport;
 }(BaseValue));
-var BindFramebuffer = (function (BaseValue) {
+var BindFramebuffer = /*@__PURE__*/(function (BaseValue) {
     function BindFramebuffer () {
         BaseValue.apply(this, arguments);
     }
@@ -22754,7 +26040,7 @@ var BindFramebuffer = (function (BaseValue) {
 
     return BindFramebuffer;
 }(BaseValue));
-var BindRenderbuffer = (function (BaseValue) {
+var BindRenderbuffer = /*@__PURE__*/(function (BaseValue) {
     function BindRenderbuffer () {
         BaseValue.apply(this, arguments);
     }
@@ -22777,7 +26063,7 @@ var BindRenderbuffer = (function (BaseValue) {
 
     return BindRenderbuffer;
 }(BaseValue));
-var BindTexture = (function (BaseValue) {
+var BindTexture = /*@__PURE__*/(function (BaseValue) {
     function BindTexture () {
         BaseValue.apply(this, arguments);
     }
@@ -22800,7 +26086,7 @@ var BindTexture = (function (BaseValue) {
 
     return BindTexture;
 }(BaseValue));
-var BindVertexBuffer = (function (BaseValue) {
+var BindVertexBuffer = /*@__PURE__*/(function (BaseValue) {
     function BindVertexBuffer () {
         BaseValue.apply(this, arguments);
     }
@@ -22823,7 +26109,7 @@ var BindVertexBuffer = (function (BaseValue) {
 
     return BindVertexBuffer;
 }(BaseValue));
-var BindElementBuffer = (function (BaseValue) {
+var BindElementBuffer = /*@__PURE__*/(function (BaseValue) {
     function BindElementBuffer () {
         BaseValue.apply(this, arguments);
     }
@@ -22844,7 +26130,7 @@ var BindElementBuffer = (function (BaseValue) {
 
     return BindElementBuffer;
 }(BaseValue));
-var BindVertexArrayOES = (function (BaseValue) {
+var BindVertexArrayOES = /*@__PURE__*/(function (BaseValue) {
     function BindVertexArrayOES(context) {
         BaseValue.call(this, context);
         this.vao = context.extVertexArrayObject;
@@ -22866,7 +26152,7 @@ var BindVertexArrayOES = (function (BaseValue) {
 
     return BindVertexArrayOES;
 }(BaseValue));
-var PixelStoreUnpack = (function (BaseValue) {
+var PixelStoreUnpack = /*@__PURE__*/(function (BaseValue) {
     function PixelStoreUnpack () {
         BaseValue.apply(this, arguments);
     }
@@ -22889,7 +26175,7 @@ var PixelStoreUnpack = (function (BaseValue) {
 
     return PixelStoreUnpack;
 }(BaseValue));
-var PixelStoreUnpackPremultiplyAlpha = (function (BaseValue) {
+var PixelStoreUnpackPremultiplyAlpha = /*@__PURE__*/(function (BaseValue) {
     function PixelStoreUnpackPremultiplyAlpha () {
         BaseValue.apply(this, arguments);
     }
@@ -22912,7 +26198,7 @@ var PixelStoreUnpackPremultiplyAlpha = (function (BaseValue) {
 
     return PixelStoreUnpackPremultiplyAlpha;
 }(BaseValue));
-var PixelStoreUnpackFlipY = (function (BaseValue) {
+var PixelStoreUnpackFlipY = /*@__PURE__*/(function (BaseValue) {
     function PixelStoreUnpackFlipY () {
         BaseValue.apply(this, arguments);
     }
@@ -22935,7 +26221,7 @@ var PixelStoreUnpackFlipY = (function (BaseValue) {
 
     return PixelStoreUnpackFlipY;
 }(BaseValue));
-var FramebufferAttachment = (function (BaseValue) {
+var FramebufferAttachment = /*@__PURE__*/(function (BaseValue) {
     function FramebufferAttachment(context, parent) {
         BaseValue.call(this, context);
         this.context = context;
@@ -22951,7 +26237,7 @@ var FramebufferAttachment = (function (BaseValue) {
 
     return FramebufferAttachment;
 }(BaseValue));
-var ColorAttachment = (function (FramebufferAttachment) {
+var ColorAttachment = /*@__PURE__*/(function (FramebufferAttachment) {
     function ColorAttachment () {
         FramebufferAttachment.apply(this, arguments);
     }
@@ -22975,7 +26261,7 @@ var ColorAttachment = (function (FramebufferAttachment) {
 
     return ColorAttachment;
 }(FramebufferAttachment));
-var DepthAttachment = (function (FramebufferAttachment) {
+var DepthAttachment = /*@__PURE__*/(function (FramebufferAttachment) {
     function DepthAttachment () {
         FramebufferAttachment.apply(this, arguments);
     }
@@ -23264,7 +26550,7 @@ Context.prototype.unbindVAO = function unbindVAO () {
     }
 };
 
-var SourceCache = (function (Evented) {
+var SourceCache = /*@__PURE__*/(function (Evented) {
     function SourceCache(id, options, dispatcher) {
         var this$1 = this;
 
@@ -23310,16 +26596,14 @@ var SourceCache = (function (Evented) {
         }
     };
     SourceCache.prototype.loaded = function loaded () {
-        var this$1 = this;
-
         if (this._sourceErrored) {
             return true;
         }
         if (!this._sourceLoaded) {
             return false;
         }
-        for (var t in this$1._tiles) {
-            var tile = this$1._tiles[t];
+        for (var t in this._tiles) {
+            var tile = this._tiles[t];
             if (tile.state !== 'loaded' && tile.state !== 'errored')
                 { return false; }
         }
@@ -23359,14 +26643,12 @@ var SourceCache = (function (Evented) {
         return this._source.serialize();
     };
     SourceCache.prototype.prepare = function prepare (context) {
-        var this$1 = this;
-
         if (this._source.prepare) {
             this._source.prepare();
         }
         this._state.coalesceChanges(this._tiles, this.map ? this.map.painter : null);
-        for (var i in this$1._tiles) {
-            this$1._tiles[i].upload(context);
+        for (var i in this._tiles) {
+            this._tiles[i].upload(context);
         }
     };
     SourceCache.prototype.getIds = function getIds () {
@@ -23376,8 +26658,8 @@ var SourceCache = (function (Evented) {
         var this$1 = this;
 
         var ids = [];
-        for (var id in this$1._tiles) {
-            if (this$1._isIdRenderable(+id, symbolLayer))
+        for (var id in this._tiles) {
+            if (this._isIdRenderable(+id, symbolLayer))
                 { ids.push(+id); }
         }
         if (symbolLayer) {
@@ -23402,16 +26684,14 @@ var SourceCache = (function (Evented) {
         return this._tiles[id] && this._tiles[id].hasData() && !this._coveredTiles[id] && (symbolLayer || !this._tiles[id].holdingForFade());
     };
     SourceCache.prototype.reload = function reload () {
-        var this$1 = this;
-
         if (this._paused) {
             this._shouldReloadOnResume = true;
             return;
         }
         this._cache.reset();
-        for (var i in this$1._tiles) {
-            if (this$1._tiles[i].state !== 'errored')
-                { this$1._reloadTile(i, 'reloading'); }
+        for (var i in this._tiles) {
+            if (this._tiles[i].state !== 'errored')
+                { this._reloadTile(i, 'reloading'); }
         }
     };
     SourceCache.prototype._reloadTile = function _reloadTile (id, state) {
@@ -23446,13 +26726,11 @@ var SourceCache = (function (Evented) {
         }));
     };
     SourceCache.prototype._backfillDEM = function _backfillDEM (tile) {
-        var this$1 = this;
-
         var renderables = this.getRenderableIds();
         for (var i = 0; i < renderables.length; i++) {
             var borderId = renderables[i];
             if (tile.neighboringTiles && tile.neighboringTiles[borderId]) {
-                var borderTile = this$1.getTileByID(borderId);
+                var borderTile = this.getTileByID(borderId);
                 fillBorder(tile, borderTile);
                 fillBorder(borderTile, tile);
             }
@@ -23492,16 +26770,14 @@ var SourceCache = (function (Evented) {
         return transform.zoom + transform.scaleZoom(transform.tileSize / this._source.tileSize);
     };
     SourceCache.prototype._retainLoadedChildren = function _retainLoadedChildren (idealTiles, zoom, maxCoveringZoom, retain) {
-        var this$1 = this;
-
-        for (var id in this$1._tiles) {
-            var tile = this$1._tiles[id];
+        for (var id in this._tiles) {
+            var tile = this._tiles[id];
             if (retain[id] || !tile.hasData() || tile.tileID.overscaledZ <= zoom || tile.tileID.overscaledZ > maxCoveringZoom)
                 { continue; }
             var topmostLoadedID = tile.tileID;
             while (tile && tile.tileID.overscaledZ > zoom + 1) {
                 var parentID = tile.tileID.scaledTo(tile.tileID.overscaledZ - 1);
-                tile = this$1._tiles[parentID.key];
+                tile = this._tiles[parentID.key];
                 if (tile && tile.hasData()) {
                     topmostLoadedID = parentID;
                 }
@@ -23517,19 +26793,17 @@ var SourceCache = (function (Evented) {
         }
     };
     SourceCache.prototype.findLoadedParent = function findLoadedParent (tileID, minCoveringZoom) {
-        var this$1 = this;
-
         for (var z = tileID.overscaledZ - 1; z >= minCoveringZoom; z--) {
             var parent = tileID.scaledTo(z);
             if (!parent)
                 { return; }
             var id = String(parent.key);
-            var tile = this$1._tiles[id];
+            var tile = this._tiles[id];
             if (tile && tile.hasData()) {
                 return tile;
             }
-            if (this$1._cache.has(parent)) {
-                return this$1._cache.get(parent);
+            if (this._cache.has(parent)) {
+                return this._cache.get(parent);
             }
         }
     };
@@ -23543,8 +26817,6 @@ var SourceCache = (function (Evented) {
         this._cache.setMaxSize(maxSize);
     };
     SourceCache.prototype.handleWrapJump = function handleWrapJump (lng) {
-        var this$1 = this;
-
         var prevLng = this._prevLng === undefined ? lng : this._prevLng;
         var lngDifference = lng - prevLng;
         var worldDifference = lngDifference / 360;
@@ -23552,19 +26824,19 @@ var SourceCache = (function (Evented) {
         this._prevLng = lng;
         if (wrapDelta) {
             var tiles = {};
-            for (var key in this$1._tiles) {
-                var tile = this$1._tiles[key];
+            for (var key in this._tiles) {
+                var tile = this._tiles[key];
                 tile.tileID = tile.tileID.unwrapTo(tile.tileID.wrap + wrapDelta);
                 tiles[tile.tileID.key] = tile;
             }
             this._tiles = tiles;
-            for (var id in this$1._timers) {
-                clearTimeout(this$1._timers[id]);
-                delete this$1._timers[id];
+            for (var id in this._timers) {
+                clearTimeout(this._timers[id]);
+                delete this._timers[id];
             }
-            for (var id$1 in this$1._tiles) {
-                var tile$1 = this$1._tiles[id$1];
-                this$1._setTileReloadTimer(id$1, tile$1);
+            for (var id$1 in this._tiles) {
+                var tile$1 = this._tiles[id$1];
+                this._setTileReloadTimer(id$1, tile$1);
             }
         }
     };
@@ -23607,12 +26879,12 @@ var SourceCache = (function (Evented) {
                 var id = list[i];
 
                 var tileID = retain[id];
-                var tile = this$1._tiles[id];
+                var tile = this._tiles[id];
                 if (!tile || tile.fadeEndTime && tile.fadeEndTime <= __chunk_1.browser.now())
                     { continue; }
-                var parentTile = this$1.findLoadedParent(tileID, minCoveringZoom);
+                var parentTile = this.findLoadedParent(tileID, minCoveringZoom);
                 if (parentTile) {
-                    this$1._addTile(parentTile.tileID);
+                    this._addTile(parentTile.tileID);
                     parentsForFading[parentTile.tileID.key] = parentTile.tileID;
                 }
                 fadingTiles[id] = tileID;
@@ -23620,38 +26892,34 @@ var SourceCache = (function (Evented) {
             this._retainLoadedChildren(fadingTiles, zoom, maxCoveringZoom, retain);
             for (var id$1 in parentsForFading) {
                 if (!retain[id$1]) {
-                    this$1._coveredTiles[id$1] = true;
+                    this._coveredTiles[id$1] = true;
                     retain[id$1] = parentsForFading[id$1];
                 }
             }
         }
         for (var retainedId in retain) {
-            this$1._tiles[retainedId].clearFadeHold();
+            this._tiles[retainedId].clearFadeHold();
         }
         var remove = __chunk_1.keysDifference(this._tiles, retain);
         for (var i$1 = 0, list$1 = remove; i$1 < list$1.length; i$1 += 1) {
             var tileID$1 = list$1[i$1];
 
-            var tile$1 = this$1._tiles[tileID$1];
+            var tile$1 = this._tiles[tileID$1];
             if (tile$1.hasSymbolBuckets && !tile$1.holdingForFade()) {
-                tile$1.setHoldDuration(this$1.map._fadeDuration);
+                tile$1.setHoldDuration(this.map._fadeDuration);
             } else if (!tile$1.hasSymbolBuckets || tile$1.symbolFadeFinished()) {
-                this$1._removeTile(tileID$1);
+                this._removeTile(tileID$1);
             }
         }
     };
     SourceCache.prototype.releaseSymbolFadeTiles = function releaseSymbolFadeTiles () {
-        var this$1 = this;
-
-        for (var id in this$1._tiles) {
-            if (this$1._tiles[id].holdingForFade()) {
-                this$1._removeTile(id);
+        for (var id in this._tiles) {
+            if (this._tiles[id].holdingForFade()) {
+                this._removeTile(id);
             }
         }
     };
     SourceCache.prototype._updateRetainedTiles = function _updateRetainedTiles (idealTileIDs, zoom) {
-        var this$1 = this;
-
         var retain = {};
         var checked = {};
         var minCoveringZoom = Math.max(zoom - SourceCache.maxOverzooming, this._source.minzoom);
@@ -23660,11 +26928,11 @@ var SourceCache = (function (Evented) {
         for (var i = 0, list = idealTileIDs; i < list.length; i += 1) {
             var tileID = list[i];
 
-            var tile = this$1._addTile(tileID);
+            var tile = this._addTile(tileID);
             retain[tileID.key] = tileID;
             if (tile.hasData())
                 { continue; }
-            if (zoom < this$1._source.maxzoom) {
+            if (zoom < this._source.maxzoom) {
                 missingTiles[tileID.key] = tileID;
             }
         }
@@ -23672,18 +26940,18 @@ var SourceCache = (function (Evented) {
         for (var i$1 = 0, list$1 = idealTileIDs; i$1 < list$1.length; i$1 += 1) {
             var tileID$1 = list$1[i$1];
 
-            var tile$1 = this$1._tiles[tileID$1.key];
+            var tile$1 = this._tiles[tileID$1.key];
             if (tile$1.hasData())
                 { continue; }
-            if (zoom + 1 > this$1._source.maxzoom) {
-                var childCoord = tileID$1.children(this$1._source.maxzoom)[0];
-                var childTile = this$1.getTile(childCoord);
+            if (zoom + 1 > this._source.maxzoom) {
+                var childCoord = tileID$1.children(this._source.maxzoom)[0];
+                var childTile = this.getTile(childCoord);
                 if (!!childTile && childTile.hasData()) {
                     retain[childCoord.key] = childCoord;
                     continue;
                 }
             } else {
-                var children = tileID$1.children(this$1._source.maxzoom);
+                var children = tileID$1.children(this._source.maxzoom);
                 if (retain[children[0].key] && retain[children[1].key] && retain[children[2].key] && retain[children[3].key])
                     { continue; }
             }
@@ -23693,9 +26961,9 @@ var SourceCache = (function (Evented) {
                 if (checked[parentId.key])
                     { break; }
                 checked[parentId.key] = true;
-                tile$1 = this$1.getTile(parentId);
+                tile$1 = this.getTile(parentId);
                 if (!tile$1 && parentWasRequested) {
-                    tile$1 = this$1._addTile(parentId);
+                    tile$1 = this._addTile(parentId);
                 }
                 if (tile$1) {
                     retain[parentId.key] = parentId;
@@ -23775,55 +27043,61 @@ var SourceCache = (function (Evented) {
         }
     };
     SourceCache.prototype.clearTiles = function clearTiles () {
-        var this$1 = this;
-
         this._shouldReloadOnResume = false;
         this._paused = false;
-        for (var id in this$1._tiles)
-            { this$1._removeTile(id); }
+        for (var id in this._tiles)
+            { this._removeTile(id); }
         this._cache.reset();
     };
-    SourceCache.prototype.tilesIn = function tilesIn (queryGeometry, maxPitchScaleFactor) {
+    SourceCache.prototype.tilesIn = function tilesIn (pointQueryGeometry, maxPitchScaleFactor, has3DLayer) {
         var this$1 = this;
 
         var tileResults = [];
+        var transform = this.transform;
+        if (!transform)
+            { return tileResults; }
+        var cameraPointQueryGeometry = has3DLayer ? transform.getCameraQueryGeometry(pointQueryGeometry) : pointQueryGeometry;
+        var queryGeometry = pointQueryGeometry.map(function (p) { return transform.pointCoordinate(p); });
+        var cameraQueryGeometry = cameraPointQueryGeometry.map(function (p) { return transform.pointCoordinate(p); });
         var ids = this.getIds();
         var minX = Infinity;
         var minY = Infinity;
         var maxX = -Infinity;
         var maxY = -Infinity;
-        for (var k = 0; k < queryGeometry.length; k++) {
-            var p = queryGeometry[k];
+        for (var i$1 = 0, list = cameraQueryGeometry; i$1 < list.length; i$1 += 1) {
+            var p = list[i$1];
+
             minX = Math.min(minX, p.x);
             minY = Math.min(minY, p.y);
             maxX = Math.max(maxX, p.x);
             maxY = Math.max(maxY, p.y);
         }
-        for (var i = 0; i < ids.length; i++) {
+        var loop = function ( i ) {
             var tile = this$1._tiles[ids[i]];
             if (tile.holdingForFade()) {
-                continue;
+                return;
             }
             var tileID = tile.tileID;
-            var scale = Math.pow(2, this$1.transform.zoom - tile.tileID.overscaledZ);
+            var scale = Math.pow(2, transform.zoom - tile.tileID.overscaledZ);
             var queryPadding = maxPitchScaleFactor * tile.queryPadding * __chunk_1.EXTENT / tile.tileSize / scale;
             var tileSpaceBounds = [
                 tileID.getTilePoint(new __chunk_1.MercatorCoordinate(minX, minY)),
                 tileID.getTilePoint(new __chunk_1.MercatorCoordinate(maxX, maxY))
             ];
             if (tileSpaceBounds[0].x - queryPadding < __chunk_1.EXTENT && tileSpaceBounds[0].y - queryPadding < __chunk_1.EXTENT && tileSpaceBounds[1].x + queryPadding >= 0 && tileSpaceBounds[1].y + queryPadding >= 0) {
-                var tileSpaceQueryGeometry = [];
-                for (var j = 0; j < queryGeometry.length; j++) {
-                    tileSpaceQueryGeometry.push(tileID.getTilePoint(queryGeometry[j]));
-                }
+                var tileSpaceQueryGeometry = queryGeometry.map(function (c) { return tileID.getTilePoint(c); });
+                var tileSpaceCameraQueryGeometry = cameraQueryGeometry.map(function (c) { return tileID.getTilePoint(c); });
                 tileResults.push({
                     tile: tile,
                     tileID: tileID,
-                    queryGeometry: [tileSpaceQueryGeometry],
+                    queryGeometry: tileSpaceQueryGeometry,
+                    cameraQueryGeometry: tileSpaceCameraQueryGeometry,
                     scale: scale
                 });
             }
-        }
+        };
+
+        for (var i = 0; i < ids.length; i++) loop( i );
         return tileResults;
     };
     SourceCache.prototype.getVisibleCoordinates = function getVisibleCoordinates (symbolLayer) {
@@ -23833,19 +27107,17 @@ var SourceCache = (function (Evented) {
         for (var i = 0, list = coords; i < list.length; i += 1) {
             var coord = list[i];
 
-            coord.posMatrix = this$1.transform.calculatePosMatrix(coord.toUnwrapped());
+            coord.posMatrix = this.transform.calculatePosMatrix(coord.toUnwrapped());
         }
         return coords;
     };
     SourceCache.prototype.hasTransition = function hasTransition () {
-        var this$1 = this;
-
         if (this._source.hasTransition()) {
             return true;
         }
         if (isRasterType(this._source.type)) {
-            for (var id in this$1._tiles) {
-                var tile = this$1._tiles[id];
+            for (var id in this._tiles) {
+                var tile = this._tiles[id];
                 if (tile.fadeEndTime !== undefined && tile.fadeEndTime >= __chunk_1.browser.now()) {
                     return true;
                 }
@@ -23856,6 +27128,10 @@ var SourceCache = (function (Evented) {
     SourceCache.prototype.setFeatureState = function setFeatureState (sourceLayer, feature, state) {
         sourceLayer = sourceLayer || '_geojsonTileLayer';
         this._state.updateState(sourceLayer, feature, state);
+    };
+    SourceCache.prototype.removeFeatureState = function removeFeatureState (sourceLayer, feature, key) {
+        sourceLayer = sourceLayer || '_geojsonTileLayer';
+        this._state.removeFeatureState(sourceLayer, feature, key);
     };
     SourceCache.prototype.getFeatureState = function getFeatureState (sourceLayer, feature) {
         sourceLayer = sourceLayer || '_geojsonTileLayer';
@@ -23881,12 +27157,10 @@ var WorkerPool = function WorkerPool() {
     this.active = {};
 };
 WorkerPool.prototype.acquire = function acquire (mapId) {
-        var this$1 = this;
-
     if (!this.workers) {
         this.workers = [];
         while (this.workers.length < WorkerPool.workerCount) {
-            this$1.workers.push(new WebWorker());
+            this.workers.push(new WebWorker());
         }
     }
     this.active[mapId] = true;
@@ -24336,8 +27610,6 @@ GridIndex.prototype._insertCircleCell = function _insertCircleCell (x1, y1, x2, 
     this.circleCells[cellIndex].push(uid);
 };
 GridIndex.prototype._query = function _query (x1, y1, x2, y2, hitTest, predicate) {
-        var this$1 = this;
-
     if (x2 < 0 || x1 > this.width || y2 < 0 || y1 > this.height) {
         return hitTest ? false : [];
     }
@@ -24348,19 +27620,19 @@ GridIndex.prototype._query = function _query (x1, y1, x2, y2, hitTest, predicate
         }
         for (var boxUid = 0; boxUid < this.boxKeys.length; boxUid++) {
             result.push({
-                key: this$1.boxKeys[boxUid],
-                x1: this$1.bboxes[boxUid * 4],
-                y1: this$1.bboxes[boxUid * 4 + 1],
-                x2: this$1.bboxes[boxUid * 4 + 2],
-                y2: this$1.bboxes[boxUid * 4 + 3]
+                key: this.boxKeys[boxUid],
+                x1: this.bboxes[boxUid * 4],
+                y1: this.bboxes[boxUid * 4 + 1],
+                x2: this.bboxes[boxUid * 4 + 2],
+                y2: this.bboxes[boxUid * 4 + 3]
             });
         }
         for (var circleUid = 0; circleUid < this.circleKeys.length; circleUid++) {
-            var x = this$1.circles[circleUid * 3];
-            var y = this$1.circles[circleUid * 3 + 1];
-            var radius = this$1.circles[circleUid * 3 + 2];
+            var x = this.circles[circleUid * 3];
+            var y = this.circles[circleUid * 3 + 1];
+            var radius = this.circles[circleUid * 3 + 2];
             result.push({
-                key: this$1.circleKeys[circleUid],
+                key: this.circleKeys[circleUid],
                 x1: x - radius,
                 y1: y - radius,
                 x2: x + radius,
@@ -24414,8 +27686,6 @@ GridIndex.prototype.hitTestCircle = function hitTestCircle (x, y, radius, predic
     return this._queryCircle(x, y, radius, true, predicate);
 };
 GridIndex.prototype._queryCell = function _queryCell (x1, y1, x2, y2, cellIndex, result, queryArgs, predicate) {
-        var this$1 = this;
-
     var seenUids = queryArgs.seenUids;
     var boxCell = this.boxCells[cellIndex];
     if (boxCell !== null) {
@@ -24426,13 +27696,13 @@ GridIndex.prototype._queryCell = function _queryCell (x1, y1, x2, y2, cellIndex,
                 if (!seenUids.box[boxUid]) {
                 seenUids.box[boxUid] = true;
                 var offset = boxUid * 4;
-                if (x1 <= bboxes[offset + 2] && y1 <= bboxes[offset + 3] && x2 >= bboxes[offset + 0] && y2 >= bboxes[offset + 1] && (!predicate || predicate(this$1.boxKeys[boxUid]))) {
+                if (x1 <= bboxes[offset + 2] && y1 <= bboxes[offset + 3] && x2 >= bboxes[offset + 0] && y2 >= bboxes[offset + 1] && (!predicate || predicate(this.boxKeys[boxUid]))) {
                     if (queryArgs.hitTest) {
                         result.push(true);
                         return true;
                     } else {
                         result.push({
-                            key: this$1.boxKeys[boxUid],
+                            key: this.boxKeys[boxUid],
                             x1: bboxes[offset],
                             y1: bboxes[offset + 1],
                             x2: bboxes[offset + 2],
@@ -24452,7 +27722,7 @@ GridIndex.prototype._queryCell = function _queryCell (x1, y1, x2, y2, cellIndex,
                 if (!seenUids.circle[circleUid]) {
                 seenUids.circle[circleUid] = true;
                 var offset$1 = circleUid * 3;
-                if (this$1._circleAndRectCollide(circles[offset$1], circles[offset$1 + 1], circles[offset$1 + 2], x1, y1, x2, y2) && (!predicate || predicate(this$1.circleKeys[circleUid]))) {
+                if (this._circleAndRectCollide(circles[offset$1], circles[offset$1 + 1], circles[offset$1 + 2], x1, y1, x2, y2) && (!predicate || predicate(this.circleKeys[circleUid]))) {
                     if (queryArgs.hitTest) {
                         result.push(true);
                         return true;
@@ -24461,7 +27731,7 @@ GridIndex.prototype._queryCell = function _queryCell (x1, y1, x2, y2, cellIndex,
                         var y = circles[offset$1 + 1];
                         var radius = circles[offset$1 + 2];
                         result.push({
-                            key: this$1.circleKeys[circleUid],
+                            key: this.circleKeys[circleUid],
                             x1: x - radius,
                             y1: y - radius,
                             x2: x + radius,
@@ -24474,8 +27744,6 @@ GridIndex.prototype._queryCell = function _queryCell (x1, y1, x2, y2, cellIndex,
     }
 };
 GridIndex.prototype._queryCellCircle = function _queryCellCircle (x1, y1, x2, y2, cellIndex, result, queryArgs, predicate) {
-        var this$1 = this;
-
     var circle = queryArgs.circle;
     var seenUids = queryArgs.seenUids;
     var boxCell = this.boxCells[cellIndex];
@@ -24487,7 +27755,7 @@ GridIndex.prototype._queryCellCircle = function _queryCellCircle (x1, y1, x2, y2
                 if (!seenUids.box[boxUid]) {
                 seenUids.box[boxUid] = true;
                 var offset = boxUid * 4;
-                if (this$1._circleAndRectCollide(circle.x, circle.y, circle.radius, bboxes[offset + 0], bboxes[offset + 1], bboxes[offset + 2], bboxes[offset + 3]) && (!predicate || predicate(this$1.boxKeys[boxUid]))) {
+                if (this._circleAndRectCollide(circle.x, circle.y, circle.radius, bboxes[offset + 0], bboxes[offset + 1], bboxes[offset + 2], bboxes[offset + 3]) && (!predicate || predicate(this.boxKeys[boxUid]))) {
                     result.push(true);
                     return true;
                 }
@@ -24503,7 +27771,7 @@ GridIndex.prototype._queryCellCircle = function _queryCellCircle (x1, y1, x2, y2
                 if (!seenUids.circle[circleUid]) {
                 seenUids.circle[circleUid] = true;
                 var offset$1 = circleUid * 3;
-                if (this$1._circlesCollide(circles[offset$1], circles[offset$1 + 1], circles[offset$1 + 2], circle.x, circle.y, circle.radius) && (!predicate || predicate(this$1.circleKeys[circleUid]))) {
+                if (this._circlesCollide(circles[offset$1], circles[offset$1 + 1], circles[offset$1 + 2], circle.x, circle.y, circle.radius) && (!predicate || predicate(this.circleKeys[circleUid]))) {
                     result.push(true);
                     return true;
                 }
@@ -24512,16 +27780,14 @@ GridIndex.prototype._queryCellCircle = function _queryCellCircle (x1, y1, x2, y2
     }
 };
 GridIndex.prototype._forEachCell = function _forEachCell (x1, y1, x2, y2, fn, arg1, arg2, predicate) {
-        var this$1 = this;
-
     var cx1 = this._convertToXCellCoord(x1);
     var cy1 = this._convertToYCellCoord(y1);
     var cx2 = this._convertToXCellCoord(x2);
     var cy2 = this._convertToYCellCoord(y2);
     for (var x = cx1; x <= cx2; x++) {
         for (var y = cy1; y <= cy2; y++) {
-            var cellIndex = this$1.xCellCount * y + x;
-            if (fn.call(this$1, x1, y1, x2, y2, cellIndex, arg1, arg2, predicate))
+            var cellIndex = this.xCellCount * y + x;
+            if (fn.call(this, x1, y1, x2, y2, cellIndex, arg1, arg2, predicate))
                 { return; }
         }
     }
@@ -24894,8 +28160,6 @@ CollisionIndex.prototype.approximateTileDistance = function approximateTileDista
     return tileDistance.prevTileDistance + lastSegmentTile + (incidenceStretch - 1) * lastSegmentTile * Math.abs(Math.sin(lastSegmentAngle));
 };
 CollisionIndex.prototype.placeCollisionCircles = function placeCollisionCircles (collisionCircles, allowOverlap, scale, textPixelRatio, symbol, lineVertexArray, glyphOffsetArray, fontSize, posMatrix, labelPlaneMatrix, showCollisionCircles, pitchWithMap, collisionGroupPredicate) {
-        var this$1 = this;
-
     var placedCollisionCircles = [];
     var projectedAnchor = this.projectAnchor(posMatrix, symbol.anchorX, symbol.anchorY);
     var projectionCache = {};
@@ -24924,7 +28188,7 @@ CollisionIndex.prototype.placeCollisionCircles = function placeCollisionCircles 
             markCollisionCircleUsed(collisionCircles, k, false);
             continue;
         }
-        var projectedPoint = this$1.projectPoint(posMatrix, anchorPointX, anchorPointY);
+        var projectedPoint = this.projectPoint(posMatrix, anchorPointX, anchorPointY);
         var radius = tileUnitRadius * tileToViewport;
         var atLeastOneCirclePlaced = placedCollisionCircles.length > 0;
         if (atLeastOneCirclePlaced) {
@@ -24949,10 +28213,10 @@ CollisionIndex.prototype.placeCollisionCircles = function placeCollisionCircles 
         var y1 = projectedPoint.y - radius;
         var x2 = projectedPoint.x + radius;
         var y2 = projectedPoint.y + radius;
-        entirelyOffscreen = entirelyOffscreen && this$1.isOffscreen(x1, y1, x2, y2);
-        inGrid = inGrid || this$1.isInsideGrid(x1, y1, x2, y2);
+        entirelyOffscreen = entirelyOffscreen && this.isOffscreen(x1, y1, x2, y2);
+        inGrid = inGrid || this.isInsideGrid(x1, y1, x2, y2);
         if (!allowOverlap) {
-            if (this$1.grid.hitTestCircle(projectedPoint.x, projectedPoint.y, radius, collisionGroupPredicate)) {
+            if (this.grid.hitTestCircle(projectedPoint.x, projectedPoint.y, radius, collisionGroupPredicate)) {
                 if (!showCollisionCircles) {
                     return {
                         circles: [],
@@ -25170,8 +28434,6 @@ Placement.prototype.placeLayerTile = function placeLayerTile (styleLayer, tile, 
     this.placeLayerBucket(symbolBucket, posMatrix, textLabelPlaneMatrix, iconLabelPlaneMatrix, scale, textPixelRatio, showCollisionBoxes, tile.holdingForFade(), seenCrossTileIDs, collisionBoxArray);
 };
 Placement.prototype.placeLayerBucket = function placeLayerBucket (bucket, posMatrix, textLabelPlaneMatrix, iconLabelPlaneMatrix, scale, textPixelRatio, showCollisionBoxes, holdingForFade, seenCrossTileIDs, collisionBoxArray) {
-        var this$1 = this;
-
     var layout = bucket.layers[0].layout;
     var partiallyEvaluatedTextSize = __chunk_1.evaluateSizeForZoom(bucket.textSizeData, this.transform.zoom, __chunk_1.properties.layout.properties['text-size']);
     var textOptional = layout.get('text-optional');
@@ -25188,7 +28450,7 @@ Placement.prototype.placeLayerBucket = function placeLayerBucket (bucket, posMat
         var symbolInstance = bucket.symbolInstances.get(i);
         if (!seenCrossTileIDs[symbolInstance.crossTileID]) {
             if (holdingForFade) {
-                this$1.placements[symbolInstance.crossTileID] = new JointPlacement(false, false, false);
+                this.placements[symbolInstance.crossTileID] = new JointPlacement(false, false, false);
                 continue;
             }
             var placeText = false;
@@ -25204,7 +28466,7 @@ Placement.prototype.placeLayerBucket = function placeLayerBucket (bucket, posMat
                 textFeatureIndex = collisionArrays.textFeatureIndex;
             }
             if (collisionArrays.textBox) {
-                placedGlyphBoxes = this$1.collisionIndex.placeCollisionBox(collisionArrays.textBox, layout.get('text-allow-overlap'), textPixelRatio, posMatrix, collisionGroup.predicate);
+                placedGlyphBoxes = this.collisionIndex.placeCollisionBox(collisionArrays.textBox, layout.get('text-allow-overlap'), textPixelRatio, posMatrix, collisionGroup.predicate);
                 placeText = placedGlyphBoxes.box.length > 0;
                 offscreen = offscreen && placedGlyphBoxes.offscreen;
             }
@@ -25212,7 +28474,7 @@ Placement.prototype.placeLayerBucket = function placeLayerBucket (bucket, posMat
             if (textCircles) {
                 var placedSymbol = bucket.text.placedSymbolArray.get(symbolInstance.horizontalPlacedTextSymbolIndex);
                 var fontSize = __chunk_1.evaluateSizeForFeature(bucket.textSizeData, partiallyEvaluatedTextSize, placedSymbol);
-                placedGlyphCircles = this$1.collisionIndex.placeCollisionCircles(textCircles, layout.get('text-allow-overlap'), scale, textPixelRatio, placedSymbol, bucket.lineVertexArray, bucket.glyphOffsetArray, fontSize, posMatrix, textLabelPlaneMatrix, showCollisionBoxes, layout.get('text-pitch-alignment') === 'map', collisionGroup.predicate);
+                placedGlyphCircles = this.collisionIndex.placeCollisionCircles(textCircles, layout.get('text-allow-overlap'), scale, textPixelRatio, placedSymbol, bucket.lineVertexArray, bucket.glyphOffsetArray, fontSize, posMatrix, textLabelPlaneMatrix, showCollisionBoxes, layout.get('text-pitch-alignment') === 'map', collisionGroup.predicate);
                 placeText = layout.get('text-allow-overlap') || placedGlyphCircles.circles.length > 0;
                 offscreen = offscreen && placedGlyphCircles.offscreen;
             }
@@ -25220,7 +28482,7 @@ Placement.prototype.placeLayerBucket = function placeLayerBucket (bucket, posMat
                 iconFeatureIndex = collisionArrays.iconFeatureIndex;
             }
             if (collisionArrays.iconBox) {
-                placedIconBoxes = this$1.collisionIndex.placeCollisionBox(collisionArrays.iconBox, layout.get('icon-allow-overlap'), textPixelRatio, posMatrix, collisionGroup.predicate);
+                placedIconBoxes = this.collisionIndex.placeCollisionBox(collisionArrays.iconBox, layout.get('icon-allow-overlap'), textPixelRatio, posMatrix, collisionGroup.predicate);
                 placeIcon = placedIconBoxes.box.length > 0;
                 offscreen = offscreen && placedIconBoxes.offscreen;
             }
@@ -25234,44 +28496,42 @@ Placement.prototype.placeLayerBucket = function placeLayerBucket (bucket, posMat
                 placeIcon = placeIcon && placeText;
             }
             if (placeText && placedGlyphBoxes) {
-                this$1.collisionIndex.insertCollisionBox(placedGlyphBoxes.box, layout.get('text-ignore-placement'), bucket.bucketInstanceId, textFeatureIndex, collisionGroup.ID);
+                this.collisionIndex.insertCollisionBox(placedGlyphBoxes.box, layout.get('text-ignore-placement'), bucket.bucketInstanceId, textFeatureIndex, collisionGroup.ID);
             }
             if (placeIcon && placedIconBoxes) {
-                this$1.collisionIndex.insertCollisionBox(placedIconBoxes.box, layout.get('icon-ignore-placement'), bucket.bucketInstanceId, iconFeatureIndex, collisionGroup.ID);
+                this.collisionIndex.insertCollisionBox(placedIconBoxes.box, layout.get('icon-ignore-placement'), bucket.bucketInstanceId, iconFeatureIndex, collisionGroup.ID);
             }
             if (placeText && placedGlyphCircles) {
-                this$1.collisionIndex.insertCollisionCircles(placedGlyphCircles.circles, layout.get('text-ignore-placement'), bucket.bucketInstanceId, textFeatureIndex, collisionGroup.ID);
+                this.collisionIndex.insertCollisionCircles(placedGlyphCircles.circles, layout.get('text-ignore-placement'), bucket.bucketInstanceId, textFeatureIndex, collisionGroup.ID);
             }
-            this$1.placements[symbolInstance.crossTileID] = new JointPlacement(placeText || alwaysShowText, placeIcon || alwaysShowIcon, offscreen || bucket.justReloaded);
+            this.placements[symbolInstance.crossTileID] = new JointPlacement(placeText || alwaysShowText, placeIcon || alwaysShowIcon, offscreen || bucket.justReloaded);
             seenCrossTileIDs[symbolInstance.crossTileID] = true;
         }
     }
     bucket.justReloaded = false;
 };
 Placement.prototype.commit = function commit (prevPlacement, now) {
-        var this$1 = this;
-
     this.commitTime = now;
     var placementChanged = false;
     var increment = prevPlacement && this.fadeDuration !== 0 ? (this.commitTime - prevPlacement.commitTime) / this.fadeDuration : 1;
     var prevOpacities = prevPlacement ? prevPlacement.opacities : {};
-    for (var crossTileID in this$1.placements) {
-        var jointPlacement = this$1.placements[crossTileID];
+    for (var crossTileID in this.placements) {
+        var jointPlacement = this.placements[crossTileID];
         var prevOpacity = prevOpacities[crossTileID];
         if (prevOpacity) {
-            this$1.opacities[crossTileID] = new JointOpacityState(prevOpacity, increment, jointPlacement.text, jointPlacement.icon);
+            this.opacities[crossTileID] = new JointOpacityState(prevOpacity, increment, jointPlacement.text, jointPlacement.icon);
             placementChanged = placementChanged || jointPlacement.text !== prevOpacity.text.placed || jointPlacement.icon !== prevOpacity.icon.placed;
         } else {
-            this$1.opacities[crossTileID] = new JointOpacityState(null, increment, jointPlacement.text, jointPlacement.icon, jointPlacement.skipFade);
+            this.opacities[crossTileID] = new JointOpacityState(null, increment, jointPlacement.text, jointPlacement.icon, jointPlacement.skipFade);
             placementChanged = placementChanged || jointPlacement.text || jointPlacement.icon;
         }
     }
     for (var crossTileID$1 in prevOpacities) {
         var prevOpacity$1 = prevOpacities[crossTileID$1];
-        if (!this$1.opacities[crossTileID$1]) {
+        if (!this.opacities[crossTileID$1]) {
             var jointOpacity = new JointOpacityState(prevOpacity$1, increment, false, false);
             if (!jointOpacity.isHidden()) {
-                this$1.opacities[crossTileID$1] = jointOpacity;
+                this.opacities[crossTileID$1] = jointOpacity;
                 placementChanged = placementChanged || prevOpacity$1.text.placed || prevOpacity$1.icon.placed;
             }
         }
@@ -25283,21 +28543,17 @@ Placement.prototype.commit = function commit (prevPlacement, now) {
     }
 };
 Placement.prototype.updateLayerOpacities = function updateLayerOpacities (styleLayer, tiles) {
-        var this$1 = this;
-
     var seenCrossTileIDs = {};
     for (var i = 0, list = tiles; i < list.length; i += 1) {
         var tile = list[i];
 
             var symbolBucket = tile.getBucket(styleLayer);
         if (symbolBucket && tile.latestFeatureIndex && styleLayer.id === symbolBucket.layerIds[0]) {
-            this$1.updateBucketOpacities(symbolBucket, seenCrossTileIDs, tile.collisionBoxArray);
+            this.updateBucketOpacities(symbolBucket, seenCrossTileIDs, tile.collisionBoxArray);
         }
     }
 };
 Placement.prototype.updateBucketOpacities = function updateBucketOpacities (bucket, seenCrossTileIDs, collisionBoxArray) {
-        var this$1 = this;
-
     if (bucket.hasTextData())
         { bucket.text.opacityVertexArray.clear(); }
     if (bucket.hasIconData())
@@ -25317,12 +28573,12 @@ Placement.prototype.updateBucketOpacities = function updateBucketOpacities (buck
     for (var s = 0; s < bucket.symbolInstances.length; s++) {
         var symbolInstance = bucket.symbolInstances.get(s);
         var isDuplicate = seenCrossTileIDs[symbolInstance.crossTileID];
-        var opacityState = this$1.opacities[symbolInstance.crossTileID];
+        var opacityState = this.opacities[symbolInstance.crossTileID];
         if (isDuplicate) {
             opacityState = duplicateOpacityState;
         } else if (!opacityState) {
             opacityState = defaultOpacityState;
-            this$1.opacities[symbolInstance.crossTileID] = opacityState;
+            this.opacities[symbolInstance.crossTileID] = opacityState;
         }
         seenCrossTileIDs[symbolInstance.crossTileID] = true;
         var hasText = symbolInstance.numGlyphVertices > 0 || symbolInstance.numVerticalGlyphVertices > 0;
@@ -25422,12 +28678,10 @@ var LayerPlacement = function LayerPlacement() {
     this._seenCrossTileIDs = {};
 };
 LayerPlacement.prototype.continuePlacement = function continuePlacement (tiles, placement, showCollisionBoxes, styleLayer, shouldPausePlacement) {
-        var this$1 = this;
-
     while (this._currentTileIndex < tiles.length) {
-        var tile = tiles[this$1._currentTileIndex];
-        placement.placeLayerTile(styleLayer, tile, showCollisionBoxes, this$1._seenCrossTileIDs);
-        this$1._currentTileIndex++;
+        var tile = tiles[this._currentTileIndex];
+        placement.placeLayerTile(styleLayer, tile, showCollisionBoxes, this._seenCrossTileIDs);
+        this._currentTileIndex++;
         if (shouldPausePlacement()) {
             return true;
         }
@@ -25452,20 +28706,20 @@ PauseablePlacement.prototype.continuePlacement = function continuePlacement (ord
         return this$1._forceFullPlacement ? false : elapsedTime > 2;
     };
     while (this._currentPlacementIndex >= 0) {
-        var layerId = order[this$1._currentPlacementIndex];
+        var layerId = order[this._currentPlacementIndex];
         var layer = layers[layerId];
-        var placementZoom = this$1.placement.collisionIndex.transform.zoom;
+        var placementZoom = this.placement.collisionIndex.transform.zoom;
         if (layer.type === 'symbol' && (!layer.minzoom || layer.minzoom <= placementZoom) && (!layer.maxzoom || layer.maxzoom > placementZoom)) {
-            if (!this$1._inProgressLayer) {
-                this$1._inProgressLayer = new LayerPlacement();
+            if (!this._inProgressLayer) {
+                this._inProgressLayer = new LayerPlacement();
             }
-            var pausePlacement = this$1._inProgressLayer.continuePlacement(layerTiles[layer.source], this$1.placement, this$1._showCollisionBoxes, layer, shouldPausePlacement);
+            var pausePlacement = this._inProgressLayer.continuePlacement(layerTiles[layer.source], this.placement, this._showCollisionBoxes, layer, shouldPausePlacement);
             if (pausePlacement) {
                 return;
             }
-            delete this$1._inProgressLayer;
+            delete this._inProgressLayer;
         }
-        this$1._currentPlacementIndex--;
+        this._currentPlacementIndex--;
     }
     this._done = true;
 };
@@ -25476,20 +28730,18 @@ PauseablePlacement.prototype.commit = function commit (previousPlacement, now) {
 
 var roundingFactor = 512 / __chunk_1.EXTENT / 2;
 var TileLayerIndex = function TileLayerIndex(tileID, symbolInstances, bucketInstanceId) {
-    var this$1 = this;
-
     this.tileID = tileID;
     this.indexedSymbolInstances = {};
     this.bucketInstanceId = bucketInstanceId;
     for (var i = 0; i < symbolInstances.length; i++) {
         var symbolInstance = symbolInstances.get(i);
         var key = symbolInstance.key;
-        if (!this$1.indexedSymbolInstances[key]) {
-            this$1.indexedSymbolInstances[key] = [];
+        if (!this.indexedSymbolInstances[key]) {
+            this.indexedSymbolInstances[key] = [];
         }
-        this$1.indexedSymbolInstances[key].push({
+        this.indexedSymbolInstances[key].push({
             crossTileID: symbolInstance.crossTileID,
-            coord: this$1.getScaledCoordinates(symbolInstance, tileID)
+            coord: this.getScaledCoordinates(symbolInstance, tileID)
         });
     }
 };
@@ -25502,19 +28754,17 @@ TileLayerIndex.prototype.getScaledCoordinates = function getScaledCoordinates (s
     };
 };
 TileLayerIndex.prototype.findMatches = function findMatches (symbolInstances, newTileID, zoomCrossTileIDs) {
-        var this$1 = this;
-
     var tolerance = this.tileID.canonical.z < newTileID.canonical.z ? 1 : Math.pow(2, this.tileID.canonical.z - newTileID.canonical.z);
     for (var i = 0; i < symbolInstances.length; i++) {
         var symbolInstance = symbolInstances.get(i);
         if (symbolInstance.crossTileID) {
             continue;
         }
-        var indexedInstances = this$1.indexedSymbolInstances[symbolInstance.key];
+        var indexedInstances = this.indexedSymbolInstances[symbolInstance.key];
         if (!indexedInstances) {
             continue;
         }
-        var scaledSymbolCoord = this$1.getScaledCoordinates(symbolInstance, newTileID);
+        var scaledSymbolCoord = this.getScaledCoordinates(symbolInstance, newTileID);
         for (var i$1 = 0, list = indexedInstances; i$1 < list.length; i$1 += 1) {
             var thisTileSymbol = list[i$1];
 
@@ -25538,26 +28788,22 @@ var CrossTileSymbolLayerIndex = function CrossTileSymbolLayerIndex() {
     this.lng = 0;
 };
 CrossTileSymbolLayerIndex.prototype.handleWrapJump = function handleWrapJump (lng) {
-        var this$1 = this;
-
     var wrapDelta = Math.round((lng - this.lng) / 360);
     if (wrapDelta !== 0) {
-        for (var zoom in this$1.indexes) {
-            var zoomIndexes = this$1.indexes[zoom];
+        for (var zoom in this.indexes) {
+            var zoomIndexes = this.indexes[zoom];
             var newZoomIndex = {};
             for (var key in zoomIndexes) {
                 var index = zoomIndexes[key];
                 index.tileID = index.tileID.unwrapTo(index.tileID.wrap + wrapDelta);
                 newZoomIndex[index.tileID.key] = index;
             }
-            this$1.indexes[zoom] = newZoomIndex;
+            this.indexes[zoom] = newZoomIndex;
         }
     }
     this.lng = lng;
 };
 CrossTileSymbolLayerIndex.prototype.addBucket = function addBucket (tileID, bucket, crossTileIDs) {
-        var this$1 = this;
-
     if (this.indexes[tileID.overscaledZ] && this.indexes[tileID.overscaledZ][tileID.key]) {
         if (this.indexes[tileID.overscaledZ][tileID.key].bucketInstanceId === bucket.bucketInstanceId) {
             return false;
@@ -25573,8 +28819,8 @@ CrossTileSymbolLayerIndex.prototype.addBucket = function addBucket (tileID, buck
         this.usedCrossTileIDs[tileID.overscaledZ] = {};
     }
     var zoomCrossTileIDs = this.usedCrossTileIDs[tileID.overscaledZ];
-    for (var zoom in this$1.indexes) {
-        var zoomIndexes = this$1.indexes[zoom];
+    for (var zoom in this.indexes) {
+        var zoomIndexes = this.indexes[zoom];
         if (Number(zoom) > tileID.overscaledZ) {
             for (var id in zoomIndexes) {
                 var childIndex = zoomIndexes[id];
@@ -25604,25 +28850,21 @@ CrossTileSymbolLayerIndex.prototype.addBucket = function addBucket (tileID, buck
     return true;
 };
 CrossTileSymbolLayerIndex.prototype.removeBucketCrossTileIDs = function removeBucketCrossTileIDs (zoom, removedBucket) {
-        var this$1 = this;
-
     for (var key in removedBucket.indexedSymbolInstances) {
         for (var i = 0, list = removedBucket.indexedSymbolInstances[key]; i < list.length; i += 1) {
             var symbolInstance = list[i];
 
-                delete this$1.usedCrossTileIDs[zoom][symbolInstance.crossTileID];
+                delete this.usedCrossTileIDs[zoom][symbolInstance.crossTileID];
         }
     }
 };
 CrossTileSymbolLayerIndex.prototype.removeStaleBuckets = function removeStaleBuckets (currentIDs) {
-        var this$1 = this;
-
     var tilesChanged = false;
-    for (var z in this$1.indexes) {
-        var zoomIndexes = this$1.indexes[z];
+    for (var z in this.indexes) {
+        var zoomIndexes = this.indexes[z];
         for (var tileKey in zoomIndexes) {
             if (!currentIDs[zoomIndexes[tileKey].bucketInstanceId]) {
-                this$1.removeBucketCrossTileIDs(z, zoomIndexes[tileKey]);
+                this.removeBucketCrossTileIDs(z, zoomIndexes[tileKey]);
                 delete zoomIndexes[tileKey];
                 tilesChanged = true;
             }
@@ -25637,8 +28879,6 @@ var CrossTileSymbolIndex = function CrossTileSymbolIndex() {
     this.bucketsInCurrentPlacement = {};
 };
 CrossTileSymbolIndex.prototype.addLayer = function addLayer (styleLayer, tiles, lng) {
-        var this$1 = this;
-
     var layerIndex = this.layerIndexes[styleLayer.id];
     if (layerIndex === undefined) {
         layerIndex = this.layerIndexes[styleLayer.id] = new CrossTileSymbolLayerIndex();
@@ -25653,9 +28893,9 @@ CrossTileSymbolIndex.prototype.addLayer = function addLayer (styleLayer, tiles, 
         if (!symbolBucket || styleLayer.id !== symbolBucket.layerIds[0])
             { continue; }
         if (!symbolBucket.bucketInstanceId) {
-            symbolBucket.bucketInstanceId = ++this$1.maxBucketInstanceId;
+            symbolBucket.bucketInstanceId = ++this.maxBucketInstanceId;
         }
-        if (layerIndex.addBucket(tile.tileID, symbolBucket, this$1.crossTileIDs)) {
+        if (layerIndex.addBucket(tile.tileID, symbolBucket, this.crossTileIDs)) {
             symbolBucketsChanged = true;
         }
         currentBucketIDs[symbolBucket.bucketInstanceId] = true;
@@ -25666,15 +28906,13 @@ CrossTileSymbolIndex.prototype.addLayer = function addLayer (styleLayer, tiles, 
     return symbolBucketsChanged;
 };
 CrossTileSymbolIndex.prototype.pruneUnusedLayers = function pruneUnusedLayers (usedLayers) {
-        var this$1 = this;
-
     var usedLayerMap = {};
     usedLayers.forEach(function (usedLayer) {
         usedLayerMap[usedLayer] = true;
     });
-    for (var layerId in this$1.layerIndexes) {
+    for (var layerId in this.layerIndexes) {
         if (!usedLayerMap[layerId]) {
-            delete this$1.layerIndexes[layerId];
+            delete this.layerIndexes[layerId];
         }
     }
 };
@@ -25699,7 +28937,7 @@ var ignoredDiffOperations = __chunk_1.pick(operations, [
     'setBearing',
     'setPitch'
 ]);
-var Style = (function (Evented) {
+var Style = /*@__PURE__*/(function (Evented) {
     function Style(map, options) {
         var this$1 = this;
         if ( options === void 0 ) options = {};
@@ -25785,7 +29023,7 @@ var Style = (function (Evented) {
         this._loaded = true;
         this.stylesheet = json;
         for (var id in json.sources) {
-            this$1.addSource(id, json.sources[id], { validate: false });
+            this.addSource(id, json.sources[id], { validate: false });
         }
         if (json.sprite) {
             this._spriteRequest = loadSprite(json.sprite, this.map._transformRequest, function (err, images) {
@@ -25811,8 +29049,8 @@ var Style = (function (Evented) {
             var layer = list[i];
 
             layer = __chunk_1.createStyleLayer(layer);
-            layer.setEventedParent(this$1, { layer: { id: layer.id } });
-            this$1._layers[layer.id] = layer;
+            layer.setEventedParent(this, { layer: { id: layer.id } });
+            this._layers[layer.id] = layer;
         }
         this.dispatcher.broadcast('setLayers', this._serializeLayers(this._order));
         this.light = new Light(this.stylesheet.light);
@@ -25834,27 +29072,23 @@ var Style = (function (Evented) {
         }
     };
     Style.prototype.loaded = function loaded () {
-        var this$1 = this;
-
         if (!this._loaded)
             { return false; }
         if (Object.keys(this._updatedSources).length)
             { return false; }
-        for (var id in this$1.sourceCaches)
-            { if (!this$1.sourceCaches[id].loaded())
+        for (var id in this.sourceCaches)
+            { if (!this.sourceCaches[id].loaded())
                 { return false; } }
         if (!this.imageManager.isLoaded())
             { return false; }
         return true;
     };
     Style.prototype._serializeLayers = function _serializeLayers (ids) {
-        var this$1 = this;
-
         var serializedLayers = [];
         for (var i = 0, list = ids; i < list.length; i += 1) {
             var id = list[i];
 
-            var layer = this$1._layers[id];
+            var layer = this._layers[id];
             if (layer.type !== 'custom') {
                 serializedLayers.push(layer.serialize());
             }
@@ -25862,18 +29096,16 @@ var Style = (function (Evented) {
         return serializedLayers;
     };
     Style.prototype.hasTransitions = function hasTransitions () {
-        var this$1 = this;
-
         if (this.light && this.light.hasTransition()) {
             return true;
         }
-        for (var id in this$1.sourceCaches) {
-            if (this$1.sourceCaches[id].hasTransition()) {
+        for (var id in this.sourceCaches) {
+            if (this.sourceCaches[id].hasTransition()) {
                 return true;
             }
         }
-        for (var id$1 in this$1._layers) {
-            if (this$1._layers[id$1].hasTransition()) {
+        for (var id$1 in this._layers) {
+            if (this._layers[id$1].hasTransition()) {
                 return true;
             }
         }
@@ -25885,8 +29117,6 @@ var Style = (function (Evented) {
         }
     };
     Style.prototype.update = function update (parameters) {
-        var this$1 = this;
-
         if (!this._loaded) {
             return;
         }
@@ -25897,30 +29127,30 @@ var Style = (function (Evented) {
             if (updatedIds.length || removedIds.length) {
                 this._updateWorkerLayers(updatedIds, removedIds);
             }
-            for (var id in this$1._updatedSources) {
-                var action = this$1._updatedSources[id];
+            for (var id in this._updatedSources) {
+                var action = this._updatedSources[id];
                 if (action === 'reload') {
-                    this$1._reloadSource(id);
+                    this._reloadSource(id);
                 } else if (action === 'clear') {
-                    this$1._clearSource(id);
+                    this._clearSource(id);
                 }
             }
-            for (var id$1 in this$1._updatedPaintProps) {
-                this$1._layers[id$1].updateTransitions(parameters);
+            for (var id$1 in this._updatedPaintProps) {
+                this._layers[id$1].updateTransitions(parameters);
             }
             this.light.updateTransitions(parameters);
             this._resetUpdates();
         }
-        for (var sourceId in this$1.sourceCaches) {
-            this$1.sourceCaches[sourceId].used = false;
+        for (var sourceId in this.sourceCaches) {
+            this.sourceCaches[sourceId].used = false;
         }
-        for (var i = 0, list = this$1._order; i < list.length; i += 1) {
+        for (var i = 0, list = this._order; i < list.length; i += 1) {
             var layerId = list[i];
 
-            var layer = this$1._layers[layerId];
+            var layer = this._layers[layerId];
             layer.recalculate(parameters);
             if (!layer.isHidden(parameters.zoom) && layer.source) {
-                this$1.sourceCaches[layer.source].used = true;
+                this.sourceCaches[layer.source].used = true;
             }
         }
         this.light.recalculate(parameters);
@@ -26045,15 +29275,13 @@ var Style = (function (Evented) {
         this._changed = true;
     };
     Style.prototype.removeSource = function removeSource (id) {
-        var this$1 = this;
-
         this._checkLoaded();
         if (this.sourceCaches[id] === undefined) {
             throw new Error('There is no source with this ID');
         }
-        for (var layerId in this$1._layers) {
-            if (this$1._layers[layerId].source === id) {
-                return this$1.fire(new __chunk_1.ErrorEvent(new Error(("Source \"" + id + "\" cannot be removed while layer \"" + layerId + "\" is using it."))));
+        for (var layerId in this._layers) {
+            if (this._layers[layerId].source === id) {
+                return this.fire(new __chunk_1.ErrorEvent(new Error(("Source \"" + id + "\" cannot be removed while layer \"" + layerId + "\" is using it."))));
             }
         }
         var sourceCache = this.sourceCaches[id];
@@ -26269,6 +29497,10 @@ var Style = (function (Evented) {
             return;
         }
         var sourceType = sourceCache.getSource().type;
+        if (sourceType === 'geojson' && sourceLayer) {
+            this.fire(new __chunk_1.ErrorEvent(new Error("GeoJSON sources cannot have a sourceLayer parameter.")));
+            return;
+        }
         if (sourceType === 'vector' && !sourceLayer) {
             this.fire(new __chunk_1.ErrorEvent(new Error("The sourceLayer parameter must be provided for vector source types.")));
             return;
@@ -26278,6 +29510,31 @@ var Style = (function (Evented) {
             return;
         }
         sourceCache.setFeatureState(sourceLayer, featureId, state);
+    };
+    Style.prototype.removeFeatureState = function removeFeatureState (target, key) {
+        this._checkLoaded();
+        var sourceId = target.source;
+        var sourceCache = this.sourceCaches[sourceId];
+        if (sourceCache === undefined) {
+            this.fire(new __chunk_1.ErrorEvent(new Error(("The source '" + sourceId + "' does not exist in the map's style."))));
+            return;
+        }
+        var sourceType = sourceCache.getSource().type;
+        var sourceLayer = sourceType === 'vector' ? target.sourceLayer : undefined;
+        var featureId = parseInt(target.id, 10);
+        if (sourceType === 'vector' && !sourceLayer) {
+            this.fire(new __chunk_1.ErrorEvent(new Error("The sourceLayer parameter must be provided for vector source types.")));
+            return;
+        }
+        if (target.id && isNaN(featureId) || featureId < 0) {
+            this.fire(new __chunk_1.ErrorEvent(new Error("The feature id parameter must be non-negative.")));
+            return;
+        }
+        if (key && !target.id) {
+            this.fire(new __chunk_1.ErrorEvent(new Error("A feature id is requred to remove its specific state property.")));
+            return;
+        }
+        sourceCache.removeFeatureState(sourceLayer, featureId, key);
     };
     Style.prototype.getFeatureState = function getFeatureState (feature) {
         this._checkLoaded();
@@ -26333,21 +29590,55 @@ var Style = (function (Evented) {
         }
         this._changed = true;
     };
-    Style.prototype._flattenRenderedFeatures = function _flattenRenderedFeatures (sourceResults) {
+    Style.prototype._flattenAndSortRenderedFeatures = function _flattenAndSortRenderedFeatures (sourceResults) {
         var this$1 = this;
 
-        var features = [];
+        var isLayer3D = function (layerId) { return this$1._layers[layerId].type === 'fill-extrusion'; };
+        var layerIndex = {};
+        var features3D = [];
         for (var l = this._order.length - 1; l >= 0; l--) {
-            var layerId = this$1._order[l];
-            for (var i$1 = 0, list$1 = sourceResults; i$1 < list$1.length; i$1 += 1) {
-                var sourceResult = list$1[i$1];
+            var layerId = this._order[l];
+            if (isLayer3D(layerId)) {
+                layerIndex[layerId] = l;
+                for (var i$2 = 0, list$1 = sourceResults; i$2 < list$1.length; i$2 += 1) {
+                    var sourceResult = list$1[i$2];
 
-                var layerFeatures = sourceResult[layerId];
-                if (layerFeatures) {
-                    for (var i = 0, list = layerFeatures; i < list.length; i += 1) {
-                        var feature = list[i];
+                    var layerFeatures = sourceResult[layerId];
+                    if (layerFeatures) {
+                        for (var i$1 = 0, list = layerFeatures; i$1 < list.length; i$1 += 1) {
+                            var featureWrapper = list[i$1];
 
-                        features.push(feature);
+                            features3D.push(featureWrapper);
+                        }
+                    }
+                }
+            }
+        }
+        features3D.sort(function (a, b) {
+            return b.intersectionZ - a.intersectionZ;
+        });
+        var features = [];
+        for (var l$1 = this._order.length - 1; l$1 >= 0; l$1--) {
+            var layerId$1 = this._order[l$1];
+            if (isLayer3D(layerId$1)) {
+                for (var i = features3D.length - 1; i >= 0; i--) {
+                    var topmost3D = features3D[i].feature;
+                    if (layerIndex[topmost3D.layer.id] < l$1)
+                        { break; }
+                    features.push(topmost3D);
+                    features3D.pop();
+                }
+            } else {
+                for (var i$4 = 0, list$3 = sourceResults; i$4 < list$3.length; i$4 += 1) {
+                    var sourceResult$1 = list$3[i$4];
+
+                    var layerFeatures$1 = sourceResult$1[layerId$1];
+                    if (layerFeatures$1) {
+                        for (var i$3 = 0, list$2 = layerFeatures$1; i$3 < list$2.length; i$3 += 1) {
+                            var featureWrapper$1 = list$2[i$3];
+
+                            features.push(featureWrapper$1.feature);
+                        }
                     }
                 }
             }
@@ -26355,8 +29646,6 @@ var Style = (function (Evented) {
         return features;
     };
     Style.prototype.queryRenderedFeatures = function queryRenderedFeatures$1 (queryGeometry, params, transform) {
-        var this$1 = this;
-
         if (params && params.filter) {
             this._validate(__chunk_1.validateStyle.filter, 'queryRenderedFeatures.filter', params.filter);
         }
@@ -26369,25 +29658,24 @@ var Style = (function (Evented) {
             for (var i = 0, list = params.layers; i < list.length; i += 1) {
                 var layerId = list[i];
 
-                var layer = this$1._layers[layerId];
+                var layer = this._layers[layerId];
                 if (!layer) {
-                    this$1.fire(new __chunk_1.ErrorEvent(new Error(("The layer '" + layerId + "' does not exist in the map's style and cannot be queried for features."))));
+                    this.fire(new __chunk_1.ErrorEvent(new Error(("The layer '" + layerId + "' does not exist in the map's style and cannot be queried for features."))));
                     return [];
                 }
                 includedSources[layer.source] = true;
             }
         }
         var sourceResults = [];
-        var queryCoordinates = queryGeometry.map(function (p) { return transform.pointCoordinate(p); });
-        for (var id in this$1.sourceCaches) {
+        for (var id in this.sourceCaches) {
             if (params.layers && !includedSources[id])
                 { continue; }
-            sourceResults.push(queryRenderedFeatures(this$1.sourceCaches[id], this$1._layers, queryCoordinates, params, transform));
+            sourceResults.push(queryRenderedFeatures(this.sourceCaches[id], this._layers, queryGeometry, params, transform));
         }
         if (this.placement) {
             sourceResults.push(queryRenderedSymbols(this._layers, this.sourceCaches, queryGeometry, params, this.placement.collisionIndex, this.placement.retainedQueryData));
         }
-        return this._flattenRenderedFeatures(sourceResults);
+        return this._flattenAndSortRenderedFeatures(sourceResults);
     };
     Style.prototype.querySourceFeatures = function querySourceFeatures$1 (sourceID, params) {
         if (params && params.filter) {
@@ -26450,8 +29738,6 @@ var Style = (function (Evented) {
         }, props)));
     };
     Style.prototype._remove = function _remove () {
-        var this$1 = this;
-
         if (this._request) {
             this._request.cancel();
             this._request = null;
@@ -26461,8 +29747,8 @@ var Style = (function (Evented) {
             this._spriteRequest = null;
         }
         __chunk_1.evented.off('pluginAvailable', this._rtlTextPluginCallback);
-        for (var id in this$1.sourceCaches) {
-            this$1.sourceCaches[id].clearTiles();
+        for (var id in this.sourceCaches) {
+            this.sourceCaches[id].clearTiles();
         }
         this.dispatcher.remove();
     };
@@ -26474,36 +29760,30 @@ var Style = (function (Evented) {
         this.sourceCaches[id].reload();
     };
     Style.prototype._updateSources = function _updateSources (transform) {
-        var this$1 = this;
-
-        for (var id in this$1.sourceCaches) {
-            this$1.sourceCaches[id].update(transform);
+        for (var id in this.sourceCaches) {
+            this.sourceCaches[id].update(transform);
         }
     };
     Style.prototype._generateCollisionBoxes = function _generateCollisionBoxes () {
-        var this$1 = this;
-
-        for (var id in this$1.sourceCaches) {
-            this$1._reloadSource(id);
+        for (var id in this.sourceCaches) {
+            this._reloadSource(id);
         }
     };
     Style.prototype._updatePlacement = function _updatePlacement (transform, showCollisionBoxes, fadeDuration, crossSourceCollisions) {
-        var this$1 = this;
-
         var symbolBucketsChanged = false;
         var placementCommitted = false;
         var layerTiles = {};
-        for (var i = 0, list = this$1._order; i < list.length; i += 1) {
+        for (var i = 0, list = this._order; i < list.length; i += 1) {
             var layerID = list[i];
 
-            var styleLayer = this$1._layers[layerID];
+            var styleLayer = this._layers[layerID];
             if (styleLayer.type !== 'symbol')
                 { continue; }
             if (!layerTiles[styleLayer.source]) {
-                var sourceCache = this$1.sourceCaches[styleLayer.source];
+                var sourceCache = this.sourceCaches[styleLayer.source];
                 layerTiles[styleLayer.source] = sourceCache.getRenderableIds(true).map(function (id) { return sourceCache.getTileByID(id); }).sort(function (a, b) { return b.tileID.overscaledZ - a.tileID.overscaledZ || (a.tileID.isLessThan(b.tileID) ? -1 : 1); });
             }
-            var layerBucketsChanged = this$1.crossTileSymbolIndex.addLayer(styleLayer, layerTiles[styleLayer.source], transform.center.lng);
+            var layerBucketsChanged = this.crossTileSymbolIndex.addLayer(styleLayer, layerTiles[styleLayer.source], transform.center.lng);
             symbolBucketsChanged = symbolBucketsChanged || layerBucketsChanged;
         }
         this.crossTileSymbolIndex.pruneUnusedLayers(this._order);
@@ -26525,23 +29805,21 @@ var Style = (function (Evented) {
             }
         }
         if (placementCommitted || symbolBucketsChanged) {
-            for (var i$1 = 0, list$1 = this$1._order; i$1 < list$1.length; i$1 += 1) {
+            for (var i$1 = 0, list$1 = this._order; i$1 < list$1.length; i$1 += 1) {
                 var layerID$1 = list$1[i$1];
 
-                var styleLayer$1 = this$1._layers[layerID$1];
+                var styleLayer$1 = this._layers[layerID$1];
                 if (styleLayer$1.type !== 'symbol')
                     { continue; }
-                this$1.placement.updateLayerOpacities(styleLayer$1, layerTiles[styleLayer$1.source]);
+                this.placement.updateLayerOpacities(styleLayer$1, layerTiles[styleLayer$1.source]);
             }
         }
         var needsRerender = !this.pauseablePlacement.isDone() || this.placement.hasTransitions(__chunk_1.browser.now());
         return needsRerender;
     };
     Style.prototype._releaseSymbolFadeTiles = function _releaseSymbolFadeTiles () {
-        var this$1 = this;
-
-        for (var id in this$1.sourceCaches) {
-            this$1.sourceCaches[id].releaseSymbolFadeTiles();
+        for (var id in this.sourceCaches) {
+            this.sourceCaches[id].releaseSymbolFadeTiles();
         }
     };
     Style.prototype.getImages = function getImages (mapId, params, callback) {
@@ -26549,6 +29827,9 @@ var Style = (function (Evented) {
     };
     Style.prototype.getGlyphs = function getGlyphs (mapId, params, callback) {
         this.glyphManager.getGlyphs(params.stacks, callback);
+    };
+    Style.prototype.getResource = function getResource (mapId, params, callback) {
+        return __chunk_1.makeRequest(params, callback);
     };
 
     return Style;
@@ -26633,7 +29914,7 @@ var extrusionTextureVert = "uniform mat4 u_matrix;uniform vec2 u_world;attribute
 
 var hillshadePrepareFrag = "#ifdef GL_ES\nprecision highp float;\n#endif\nuniform sampler2D u_image;varying vec2 v_pos;uniform vec2 u_dimension;uniform float u_zoom;uniform float u_maxzoom;float getElevation(vec2 coord,float bias) {vec4 data=texture2D(u_image,coord)*255.0;return (data.r+data.g*256.0+data.b*256.0*256.0)/4.0;}void main() {vec2 epsilon=1.0/u_dimension;float a=getElevation(v_pos+vec2(-epsilon.x,-epsilon.y),0.0);float b=getElevation(v_pos+vec2(0,-epsilon.y),0.0);float c=getElevation(v_pos+vec2(epsilon.x,-epsilon.y),0.0);float d=getElevation(v_pos+vec2(-epsilon.x,0),0.0);float e=getElevation(v_pos,0.0);float f=getElevation(v_pos+vec2(epsilon.x,0),0.0);float g=getElevation(v_pos+vec2(-epsilon.x,epsilon.y),0.0);float h=getElevation(v_pos+vec2(0,epsilon.y),0.0);float i=getElevation(v_pos+vec2(epsilon.x,epsilon.y),0.0);float exaggeration=u_zoom < 2.0 ? 0.4 : u_zoom < 4.5 ? 0.35 : 0.3;vec2 deriv=vec2((c+f+f+i)-(a+d+d+g),(g+h+h+i)-(a+b+b+c))/ pow(2.0,(u_zoom-u_maxzoom)*exaggeration+19.2562-u_zoom);gl_FragColor=clamp(vec4(deriv.x/2.0+0.5,deriv.y/2.0+0.5,1.0,1.0),0.0,1.0);\n#ifdef OVERDRAW_INSPECTOR\ngl_FragColor=vec4(1.0);\n#endif\n}";
 
-var hillshadePrepareVert = "uniform mat4 u_matrix;attribute vec2 a_pos;attribute vec2 a_texture_pos;varying vec2 v_pos;void main() {gl_Position=u_matrix*vec4(a_pos,0,1);v_pos=(a_texture_pos/8192.0)/2.0+0.25;}";
+var hillshadePrepareVert = "uniform mat4 u_matrix;uniform vec2 u_dimension;attribute vec2 a_pos;attribute vec2 a_texture_pos;varying vec2 v_pos;void main() {gl_Position=u_matrix*vec4(a_pos,0,1);highp vec2 epsilon=1.0/u_dimension;float scale=(u_dimension.x-2.0)/u_dimension.x;v_pos=(a_texture_pos/8192.0)*scale+epsilon;}";
 
 var hillshadeFrag = "uniform sampler2D u_image;varying vec2 v_pos;uniform vec2 u_latrange;uniform vec2 u_light;uniform vec4 u_shadow;uniform vec4 u_highlight;uniform vec4 u_accent;\n#define PI 3.141592653589793\nvoid main() {vec4 pixel=texture2D(u_image,v_pos);vec2 deriv=((pixel.rg*2.0)-1.0);float scaleFactor=cos(radians((u_latrange[0]-u_latrange[1])*(1.0-v_pos.y)+u_latrange[1]));float slope=atan(1.25*length(deriv)/scaleFactor);float aspect=deriv.x !=0.0 ? atan(deriv.y,-deriv.x) : PI/2.0*(deriv.y > 0.0 ? 1.0 :-1.0);float intensity=u_light.x;float azimuth=u_light.y+PI;float base=1.875-intensity*1.75;float maxValue=0.5*PI;float scaledSlope=intensity !=0.5 ? ((pow(base,slope)-1.0)/(pow(base,maxValue)-1.0))*maxValue : slope;float accent=cos(scaledSlope);vec4 accent_color=(1.0-accent)*u_accent*clamp(intensity*2.0,0.0,1.0);float shade=abs(mod((aspect+azimuth)/PI+0.5,2.0)-1.0);vec4 shade_color=mix(u_shadow,u_highlight,shade)*sin(scaledSlope)*clamp(intensity*2.0,0.0,1.0);gl_FragColor=accent_color*(1.0-shade_color.a)+shade_color;\n#ifdef OVERDRAW_INSPECTOR\ngl_FragColor=vec4(1.0);\n#endif\n}";
 
@@ -26774,12 +30055,10 @@ var VertexArrayObject = function VertexArrayObject() {
     this.vao = null;
 };
 VertexArrayObject.prototype.bind = function bind (context, program, layoutVertexBuffer, paintVertexBuffers, indexBuffer, vertexOffset, dynamicVertexBuffer, dynamicVertexBuffer2) {
-        var this$1 = this;
-
     this.context = context;
     var paintBuffersDiffer = this.boundPaintVertexBuffers.length !== paintVertexBuffers.length;
     for (var i = 0; !paintBuffersDiffer && i < paintVertexBuffers.length; i++) {
-        if (this$1.boundPaintVertexBuffers[i] !== paintVertexBuffers[i]) {
+        if (this.boundPaintVertexBuffers[i] !== paintVertexBuffers[i]) {
             paintBuffersDiffer = true;
         }
     }
@@ -26864,8 +30143,6 @@ VertexArrayObject.prototype.destroy = function destroy () {
 };
 
 var Program$1 = function Program(context, source, configuration, fixedUniforms, showOverdrawInspector) {
-    var this$1 = this;
-
     var gl = context.gl;
     this.program = gl.createProgram();
     var defines = configuration.defines().concat(("#define DEVICE_PIXEL_RATIO " + (__chunk_1.browser.devicePixelRatio.toFixed(1))));
@@ -26884,30 +30161,29 @@ var Program$1 = function Program(context, source, configuration, fixedUniforms, 
     gl.attachShader(this.program, vertexShader);
     var layoutAttributes = configuration.layoutAttributes || [];
     for (var i = 0; i < layoutAttributes.length; i++) {
-        gl.bindAttribLocation(this$1.program, i, layoutAttributes[i].name);
+        gl.bindAttribLocation(this.program, i, layoutAttributes[i].name);
     }
     gl.linkProgram(this.program);
     this.numAttributes = gl.getProgramParameter(this.program, gl.ACTIVE_ATTRIBUTES);
     this.attributes = {};
     var uniformLocations = {};
     for (var i$1 = 0; i$1 < this.numAttributes; i$1++) {
-        var attribute = gl.getActiveAttrib(this$1.program, i$1);
+        var attribute = gl.getActiveAttrib(this.program, i$1);
         if (attribute) {
-            this$1.attributes[attribute.name] = gl.getAttribLocation(this$1.program, attribute.name);
+            this.attributes[attribute.name] = gl.getAttribLocation(this.program, attribute.name);
         }
     }
     var numUniforms = gl.getProgramParameter(this.program, gl.ACTIVE_UNIFORMS);
     for (var i$2 = 0; i$2 < numUniforms; i$2++) {
-        var uniform = gl.getActiveUniform(this$1.program, i$2);
+        var uniform = gl.getActiveUniform(this.program, i$2);
         if (uniform) {
-            uniformLocations[uniform.name] = gl.getUniformLocation(this$1.program, uniform.name);
+            uniformLocations[uniform.name] = gl.getUniformLocation(this.program, uniform.name);
         }
     }
     this.fixedUniforms = fixedUniforms(context, uniformLocations);
     this.binderUniforms = configuration.getUniforms(context, uniformLocations);
 };
 Program$1.prototype.draw = function draw (context, drawMode, depthMode, stencilMode, colorMode, cullFaceMode, uniformValues, layerID, layoutVertexBuffer, indexBuffer, segments, currentProperties, zoom, configuration, dynamicLayoutBuffer, dynamicLayoutBuffer2) {
-        var this$1 = this;
         var obj;
 
     var gl = context.gl;
@@ -26916,8 +30192,8 @@ Program$1.prototype.draw = function draw (context, drawMode, depthMode, stencilM
     context.setStencilMode(stencilMode);
     context.setColorMode(colorMode);
     context.setCullFace(cullFaceMode);
-    for (var name in this$1.fixedUniforms) {
-        this$1.fixedUniforms[name].set(uniformValues[name]);
+    for (var name in this.fixedUniforms) {
+        this.fixedUniforms[name].set(uniformValues[name]);
     }
     if (configuration) {
         configuration.setUniforms(context, this.binderUniforms, currentProperties, { zoom: zoom });
@@ -26928,7 +30204,7 @@ Program$1.prototype.draw = function draw (context, drawMode, depthMode, stencilM
 
             var vaos = segment.vaos || (segment.vaos = {});
         var vao = vaos[layerID] || (vaos[layerID] = new VertexArrayObject());
-        vao.bind(context, this$1, layoutVertexBuffer, configuration ? configuration.getPaintVertexBuffers() : [], indexBuffer, segment.vertexOffset, dynamicLayoutBuffer, dynamicLayoutBuffer2);
+        vao.bind(context, this, layoutVertexBuffer, configuration ? configuration.getPaintVertexBuffers() : [], indexBuffer, segment.vertexOffset, dynamicLayoutBuffer, dynamicLayoutBuffer2);
         gl.drawElements(drawMode, segment.primitiveLength * primitiveSize, gl.UNSIGNED_SHORT, segment.primitiveOffset * primitiveSize * 2);
     }
 };
@@ -27031,7 +30307,7 @@ var fillExtrusionUniformValues = function (matrix, painter, shouldUseVerticalGra
         _lp.y,
         _lp.z
     ];
-    var lightMat = __chunk_1.create$2();
+    var lightMat = __chunk_1.create();
     if (light.properties.get('anchor') === 'viewport') {
         __chunk_1.fromRotation(lightMat, -painter.transform.angle);
     }
@@ -27053,7 +30329,7 @@ var fillExtrusionPatternUniformValues = function (matrix, painter, shouldUseVert
     return __chunk_1.extend(fillExtrusionUniformValues(matrix, painter, shouldUseVerticalGradient), patternUniformValues(crossfade, painter, tile), { 'u_height_factor': -Math.pow(2, coord.overscaledZ) / tile.tileSize / 8 });
 };
 var extrusionTextureUniformValues = function (painter, opacity, textureUnit) {
-    var matrix = __chunk_1.create();
+    var matrix = __chunk_1.create$1();
     __chunk_1.ortho(matrix, 0, painter.width, painter.height, 0, 0, 1);
     var gl = painter.context.gl;
     return {
@@ -27182,7 +30458,7 @@ var heatmapUniformValues = function (matrix, tile, zoom, intensity) { return ({
     'u_intensity': intensity
 }); };
 var heatmapTextureUniformValues = function (painter, layer, textureUnit, colorRampUnit) {
-    var matrix = __chunk_1.create();
+    var matrix = __chunk_1.create$1();
     __chunk_1.ortho(matrix, 0, painter.width, painter.height, 0, 0, 1);
     var gl = painter.context.gl;
     return {
@@ -27236,8 +30512,8 @@ var hillshadeUniformValues = function (painter, tile, layer) {
     };
 };
 var hillshadeUniformPrepareValues = function (tile, maxzoom) {
-    var tileSize = tile.dem.dim;
-    var matrix = __chunk_1.create();
+    var stride = tile.dem.stride;
+    var matrix = __chunk_1.create$1();
     __chunk_1.ortho(matrix, 0, __chunk_1.EXTENT, -__chunk_1.EXTENT, 0, 0, 1);
     __chunk_1.translate(matrix, matrix, [
         0,
@@ -27248,8 +30524,8 @@ var hillshadeUniformPrepareValues = function (tile, maxzoom) {
         'u_matrix': matrix,
         'u_image': 1,
         'u_dimension': [
-            tileSize * 2,
-            tileSize * 2
+            stride,
+            stride
         ],
         'u_zoom': tile.tileID.overscaledZ,
         'u_maxzoom': maxzoom
@@ -27616,11 +30892,13 @@ function drawLayerSymbols(painter, sourceCache, layer, coords, isText, translate
     var pitchWithMap = pitchAlignment === 'map';
     var alongLine = rotateWithMap && layer.layout.get('symbol-placement') !== 'point';
     var rotateInShader = rotateWithMap && !pitchWithMap && !alongLine;
+    var sortFeaturesByKey = layer.layout.get('symbol-sort-key').constantOr(1) !== undefined;
     var depthMode = painter.depthModeForSublayer(0, DepthMode.ReadOnly);
     var program;
     var size;
-    for (var i = 0, list = coords; i < list.length; i += 1) {
-        var coord = list[i];
+    var tileRenderState = [];
+    for (var i$1 = 0, list$1 = coords; i$1 < list$1.length; i$1 += 1) {
+        var coord = list$1[i$1];
 
         var tile = sourceCache.getTile(coord);
         var bucket = tile.getBucket(layer);
@@ -27638,13 +30916,17 @@ function drawLayerSymbols(painter, sourceCache, layer, coords, isText, translate
         }
         context.activeTexture.set(gl.TEXTURE0);
         var texSize = (void 0);
+        var atlasTexture = (void 0);
+        var atlasInterpolation = (void 0);
         if (isText) {
-            tile.glyphAtlasTexture.bind(gl.LINEAR, gl.CLAMP_TO_EDGE);
+            atlasTexture = tile.glyphAtlasTexture;
+            atlasInterpolation = gl.LINEAR;
             texSize = tile.glyphAtlasTexture.size;
         } else {
             var iconScaled = layer.layout.get('icon-size').constantOr(0) !== 1 || bucket.iconsNeedLinear;
             var iconTransformed = pitchWithMap || tr.pitch !== 0;
-            tile.imageAtlasTexture.bind(isSDF || painter.options.rotating || painter.options.zooming || iconScaled || iconTransformed ? gl.LINEAR : gl.NEAREST, gl.CLAMP_TO_EDGE);
+            atlasTexture = tile.imageAtlasTexture;
+            atlasInterpolation = isSDF || painter.options.rotating || painter.options.zooming || iconScaled || iconTransformed ? gl.LINEAR : gl.NEAREST;
             texSize = tile.imageAtlasTexture.size;
         }
         var s = pixelsToTileUnits(tile, 1, painter.transform.zoom);
@@ -27654,24 +30936,64 @@ function drawLayerSymbols(painter, sourceCache, layer, coords, isText, translate
             updateLineLabels(bucket, coord.posMatrix, painter, isText, labelPlaneMatrix, glCoordMatrix, pitchWithMap, keepUpright);
         }
         var matrix = painter.translatePosMatrix(coord.posMatrix, tile, translate, translateAnchor), uLabelPlaneMatrix = alongLine ? identityMat4 : labelPlaneMatrix, uglCoordMatrix = painter.translatePosMatrix(glCoordMatrix, tile, translate, translateAnchor, true);
+        var hasHalo = isSDF && layer.paint.get(isText ? 'text-halo-width' : 'icon-halo-width').constantOr(1) !== 0;
         var uniformValues = (void 0);
         if (isSDF) {
-            var hasHalo = layer.paint.get(isText ? 'text-halo-width' : 'icon-halo-width').constantOr(1) !== 0;
             uniformValues = symbolSDFUniformValues(sizeData.functionType, size, rotateInShader, pitchWithMap, painter, matrix, uLabelPlaneMatrix, uglCoordMatrix, isText, texSize, true);
-            if (hasHalo) {
-                drawSymbolElements(buffers, layer, painter, program, depthMode, stencilMode, colorMode, uniformValues);
-            }
-            uniformValues['u_is_halo'] = 0;
         } else {
             uniformValues = symbolIconUniformValues(sizeData.functionType, size, rotateInShader, pitchWithMap, painter, matrix, uLabelPlaneMatrix, uglCoordMatrix, isText, texSize);
         }
-        drawSymbolElements(buffers, layer, painter, program, depthMode, stencilMode, colorMode, uniformValues);
+        var state = {
+            program: program,
+            buffers: buffers,
+            uniformValues: uniformValues,
+            atlasTexture: atlasTexture,
+            atlasInterpolation: atlasInterpolation,
+            isSDF: isSDF,
+            hasHalo: hasHalo
+        };
+        if (sortFeaturesByKey) {
+            var oldSegments = buffers.segments.get();
+            for (var i = 0, list = oldSegments; i < list.length; i += 1) {
+                var segment = list[i];
+
+                tileRenderState.push({
+                    segments: new __chunk_1.SegmentVector([segment]),
+                    sortKey: segment.sortKey,
+                    state: state
+                });
+            }
+        } else {
+            tileRenderState.push({
+                segments: buffers.segments,
+                sortKey: 0,
+                state: state
+            });
+        }
+    }
+    if (sortFeaturesByKey) {
+        tileRenderState.sort(function (a, b) { return a.sortKey - b.sortKey; });
+    }
+    for (var i$2 = 0, list$2 = tileRenderState; i$2 < list$2.length; i$2 += 1) {
+        var segmentState = list$2[i$2];
+
+        var state$1 = segmentState.state;
+        state$1.atlasTexture.bind(state$1.atlasInterpolation, gl.CLAMP_TO_EDGE);
+        if (state$1.isSDF) {
+            var uniformValues$1 = state$1.uniformValues;
+            if (state$1.hasHalo) {
+                uniformValues$1['u_is_halo'] = 1;
+                drawSymbolElements(state$1.buffers, segmentState.segments, layer, painter, state$1.program, depthMode, stencilMode, colorMode, uniformValues$1);
+            }
+            uniformValues$1['u_is_halo'] = 0;
+        }
+        drawSymbolElements(state$1.buffers, segmentState.segments, layer, painter, state$1.program, depthMode, stencilMode, colorMode, state$1.uniformValues);
     }
 }
-function drawSymbolElements(buffers, layer, painter, program, depthMode, stencilMode, colorMode, uniformValues) {
+function drawSymbolElements(buffers, segments, layer, painter, program, depthMode, stencilMode, colorMode, uniformValues) {
     var context = painter.context;
     var gl = context.gl;
-    program.draw(context, gl.TRIANGLES, depthMode, stencilMode, colorMode, CullFaceMode.disabled, uniformValues, layer.id, buffers.layoutVertexBuffer, buffers.indexBuffer, buffers.segments, layer.paint, painter.transform.zoom, buffers.programConfigurations.get(layer.id), buffers.dynamicLayoutVertexBuffer, buffers.opacityVertexBuffer);
+    program.draw(context, gl.TRIANGLES, depthMode, stencilMode, colorMode, CullFaceMode.disabled, uniformValues, layer.id, buffers.layoutVertexBuffer, buffers.indexBuffer, segments, layer.paint, painter.transform.zoom, buffers.programConfigurations.get(layer.id), buffers.dynamicLayoutVertexBuffer, buffers.opacityVertexBuffer);
 }
 
 function drawCircles(painter, sourceCache, layer, coords) {
@@ -31232,8 +34554,6 @@ var Painter = function Painter(gl, transform) {
     this.crossTileSymbolIndex = new CrossTileSymbolIndex();
 };
 Painter.prototype.resize = function resize (width, height) {
-        var this$1 = this;
-
     var gl = this.context.gl;
     this.width = width * __chunk_1.browser.devicePixelRatio;
     this.height = height * __chunk_1.browser.devicePixelRatio;
@@ -31244,10 +34564,10 @@ Painter.prototype.resize = function resize (width, height) {
         this.height
     ]);
     if (this.style) {
-        for (var i = 0, list = this$1.style._order; i < list.length; i += 1) {
+        for (var i = 0, list = this.style._order; i < list.length; i += 1) {
             var layerId = list[i];
 
-                this$1.style._layers[layerId].resize();
+                this.style._layers[layerId].resize();
         }
     }
     if (this.depthRbo) {
@@ -31305,7 +34625,7 @@ Painter.prototype.setup = function setup () {
 Painter.prototype.clearStencil = function clearStencil () {
     var context = this.context;
     var gl = context.gl;
-    var matrix = __chunk_1.create();
+    var matrix = __chunk_1.create$1();
     __chunk_1.ortho(matrix, 0, this.width, this.height, 0, 0, 1);
     __chunk_1.scale(matrix, matrix, [
         gl.drawingBufferWidth,
@@ -31315,8 +34635,6 @@ Painter.prototype.clearStencil = function clearStencil () {
     this.useProgram('clippingMask').draw(context, gl.TRIANGLES, DepthMode.disabled, this.stencilClearMode, ColorMode.disabled, CullFaceMode.disabled, clippingMaskUniformValues(matrix), '$clipping', this.viewportBuffer, this.quadTriangleIndexBuffer, this.viewportSegments);
 };
 Painter.prototype._renderTileClippingMasks = function _renderTileClippingMasks (tileIDs) {
-        var this$1 = this;
-
     var context = this.context;
     var gl = context.gl;
     context.setColorMode(ColorMode.disabled);
@@ -31327,11 +34645,11 @@ Painter.prototype._renderTileClippingMasks = function _renderTileClippingMasks (
     for (var i = 0, list = tileIDs; i < list.length; i += 1) {
         var tileID = list[i];
 
-            var id = this$1._tileClippingMaskIDs[tileID.key] = idNext++;
+            var id = this._tileClippingMaskIDs[tileID.key] = idNext++;
         program.draw(context, gl.TRIANGLES, DepthMode.disabled, new StencilMode({
             func: gl.ALWAYS,
             mask: 0
-        }, id, 255, gl.KEEP, gl.KEEP, gl.REPLACE), ColorMode.disabled, CullFaceMode.disabled, clippingMaskUniformValues(tileID.posMatrix), '$clipping', this$1.tileExtentBuffer, this$1.quadTriangleIndexBuffer, this$1.tileExtentSegments);
+        }, id, 255, gl.KEEP, gl.KEEP, gl.REPLACE), ColorMode.disabled, CullFaceMode.disabled, clippingMaskUniformValues(tileID.posMatrix), '$clipping', this.tileExtentBuffer, this.quadTriangleIndexBuffer, this.tileExtentSegments);
     }
 };
 Painter.prototype.stencilModeForClipping = function stencilModeForClipping (tileID) {
@@ -31369,8 +34687,6 @@ Painter.prototype.depthModeForSublayer = function depthModeForSublayer (n, mask,
     ]);
 };
 Painter.prototype.render = function render (style, options) {
-        var this$1 = this;
-
     this.style = style;
     this.options = options;
     this.lineAtlas = style.lineAtlas;
@@ -31382,7 +34698,7 @@ Painter.prototype.render = function render (style, options) {
     for (var id in sourceCaches) {
         var sourceCache = sourceCaches[id];
         if (sourceCache.used) {
-            sourceCache.prepare(this$1.context);
+            sourceCache.prepare(this.context);
         }
     }
     var coordsAscending = {};
@@ -31406,20 +34722,20 @@ Painter.prototype.render = function render (style, options) {
 
                 visibleTiles.push(sourceCache$2.getTile(coord));
             }
-        updateTileMasks(visibleTiles, this$1.context);
+        updateTileMasks(visibleTiles, this.context);
     }
     this.renderPass = 'offscreen';
     this.depthRboNeedsClear = true;
     for (var i$1 = 0, list$1 = layerIds; i$1 < list$1.length; i$1 += 1) {
         var layerId = list$1[i$1];
 
-            var layer = this$1.style._layers[layerId];
-        if (!layer.hasOffscreenPass() || layer.isHidden(this$1.transform.zoom))
+            var layer = this.style._layers[layerId];
+        if (!layer.hasOffscreenPass() || layer.isHidden(this.transform.zoom))
             { continue; }
         var coords = coordsDescending[layer.source];
         if (layer.type !== 'custom' && !coords.length)
             { continue; }
-        this$1.renderLayer(this$1, sourceCaches[layer.source], layer, coords);
+        this.renderLayer(this, sourceCaches[layer.source], layer, coords);
     }
     this.context.bindFramebuffer.set(null);
     this.context.clear({
@@ -31431,35 +34747,35 @@ Painter.prototype.render = function render (style, options) {
     this.renderPass = 'opaque';
     var prevSourceId;
     for (this.currentLayer = layerIds.length - 1; this.currentLayer >= 0; this.currentLayer--) {
-        var layer$1 = this$1.style._layers[layerIds[this$1.currentLayer]];
+        var layer$1 = this.style._layers[layerIds[this.currentLayer]];
         var sourceCache$3 = sourceCaches[layer$1.source];
         var coords$1 = coordsAscending[layer$1.source];
         if (layer$1.source !== prevSourceId && sourceCache$3) {
-            this$1.clearStencil();
+            this.clearStencil();
             if (sourceCache$3.getSource().isTileClipped) {
-                this$1._renderTileClippingMasks(coords$1);
+                this._renderTileClippingMasks(coords$1);
             }
         }
-        this$1.renderLayer(this$1, sourceCache$3, layer$1, coords$1);
+        this.renderLayer(this, sourceCache$3, layer$1, coords$1);
         prevSourceId = layer$1.source;
     }
     this.renderPass = 'translucent';
     for (this.currentLayer = 0, prevSourceId = null; this.currentLayer < layerIds.length; this.currentLayer++) {
-        var layer$2 = this$1.style._layers[layerIds[this$1.currentLayer]];
+        var layer$2 = this.style._layers[layerIds[this.currentLayer]];
         var sourceCache$4 = sourceCaches[layer$2.source];
         var coords$2 = (layer$2.type === 'symbol' ? coordsDescendingSymbol : coordsDescending)[layer$2.source];
         if (layer$2.source !== prevSourceId && sourceCache$4) {
-            this$1.clearStencil();
+            this.clearStencil();
             if (sourceCache$4.getSource().isTileClipped) {
-                this$1._renderTileClippingMasks(coordsAscending[layer$2.source]);
+                this._renderTileClippingMasks(coordsAscending[layer$2.source]);
             }
         }
-        this$1.renderLayer(this$1, sourceCache$4, layer$2, coords$2);
+        this.renderLayer(this, sourceCache$4, layer$2, coords$2);
         prevSourceId = layer$2.source;
     }
     if (this.options.showTileBoundaries) {
         for (var id$3 in sourceCaches) {
-            draw$1.debug(this$1, sourceCaches[id$3], coordsAscending[id$3]);
+            draw$1.debug(this, sourceCaches[id$3], coordsAscending[id$3]);
             break;
         }
     }
@@ -31715,7 +35031,7 @@ prototypeAccessors.bearing.set = function (bearing) {
     this._unmodified = false;
     this.angle = b;
     this._calcMatrices();
-    this.rotationMatrix = __chunk_1.create$4();
+    this.rotationMatrix = __chunk_1.create$2();
     __chunk_1.rotate(this.rotationMatrix, this.rotationMatrix, this.angle);
 };
 prototypeAccessors.pitch.get = function () {
@@ -32056,7 +35372,7 @@ Transform.prototype._calcMatrices = function _calcMatrices () {
         0
     ]);
     this.alignedProjMatrix = alignedM;
-    m = __chunk_1.create();
+    m = __chunk_1.create$1();
     __chunk_1.scale(m, m, [
         this.width / 2,
         -this.height / 2,
@@ -32087,6 +35403,40 @@ Transform.prototype.maxPitchScaleFactor = function maxPitchScaleFactor () {
     ];
     var topPoint = __chunk_1.transformMat4(p, p, this.pixelMatrix);
     return topPoint[3] / this.cameraToCenterDistance;
+};
+Transform.prototype.getCameraPoint = function getCameraPoint () {
+    var pitch = this._pitch;
+    var yOffset = Math.tan(pitch) * (this.cameraToCenterDistance || 1);
+    return this.centerPoint.add(new __chunk_1.Point(0, yOffset));
+};
+Transform.prototype.getCameraQueryGeometry = function getCameraQueryGeometry (queryGeometry) {
+    var c = this.getCameraPoint();
+    if (queryGeometry.length === 1) {
+        return [
+            queryGeometry[0],
+            c
+        ];
+    } else {
+        var minX = c.x;
+        var minY = c.y;
+        var maxX = c.x;
+        var maxY = c.y;
+        for (var i = 0, list = queryGeometry; i < list.length; i += 1) {
+            var p = list[i];
+
+                minX = Math.min(minX, p.x);
+            minY = Math.min(minY, p.y);
+            maxX = Math.max(maxX, p.x);
+            maxY = Math.max(maxY, p.y);
+        }
+        return [
+            new __chunk_1.Point(minX, minY),
+            new __chunk_1.Point(maxX, minY),
+            new __chunk_1.Point(maxX, maxY),
+            new __chunk_1.Point(minX, maxY),
+            new __chunk_1.Point(minX, minY)
+        ];
+    }
 };
 
 Object.defineProperties( Transform.prototype, prototypeAccessors );
@@ -32169,7 +35519,7 @@ Hash.prototype._updateHashUnthrottled = function _updateHashUnthrottled () {
     }
 };
 
-var MapMouseEvent = (function (Event) {
+var MapMouseEvent = /*@__PURE__*/(function (Event) {
     function MapMouseEvent(type, map, originalEvent, data) {
         if ( data === void 0 ) data = {};
 
@@ -32201,7 +35551,7 @@ var MapMouseEvent = (function (Event) {
 
     return MapMouseEvent;
 }(__chunk_1.Event));
-var MapTouchEvent = (function (Event) {
+var MapTouchEvent = /*@__PURE__*/(function (Event) {
     function MapTouchEvent(type, map, originalEvent) {
         var points = DOM.touchPos(map.getCanvasContainer(), originalEvent);
         var lngLats = points.map(function (t) { return map.unproject(t); });
@@ -32236,7 +35586,7 @@ var MapTouchEvent = (function (Event) {
 
     return MapTouchEvent;
 }(__chunk_1.Event));
-var MapWheelEvent = (function (Event) {
+var MapWheelEvent = /*@__PURE__*/(function (Event) {
     function MapWheelEvent(type, map, originalEvent) {
         Event.call(this, type, { originalEvent: originalEvent });
         this._defaultPrevented = false;
@@ -33417,7 +36767,7 @@ function bindHandlers(map, options) {
     }
 }
 
-var Camera = (function (Evented) {
+var Camera = /*@__PURE__*/(function (Evented) {
     function Camera(transform, options) {
         Evented.call(this);
         this._moving = false;
@@ -33924,7 +37274,7 @@ AttributionControl.prototype._updateEditLink = function _updateEditLink () {
             }
             return acc;
         }, "?");
-        editLink.href = "https://www.mapbox.com/feedback/" + paramString + (this._map._hash ? this._map._hash.getHashString(true) : '');
+        editLink.href = (__chunk_1.config.FEEDBACK_URL) + "/" + paramString + (this._map._hash ? this._map._hash.getHashString(true) : '');
     }
 };
 AttributionControl.prototype._updateData = function _updateData (e) {
@@ -34074,8 +37424,6 @@ TaskQueue.prototype.remove = function remove (id) {
     }
 };
 TaskQueue.prototype.run = function run () {
-        var this$1 = this;
-
     var queue = this._currentlyRunning = this._queue;
     this._queue = [];
     for (var i = 0, list = queue; i < list.length; i += 1) {
@@ -34084,7 +37432,7 @@ TaskQueue.prototype.run = function run () {
             if (task.cancelled)
             { continue; }
         task.callback();
-        if (this$1._cleared)
+        if (this._cleared)
             { break; }
     }
     this._cleared = false;
@@ -34133,7 +37481,7 @@ var defaultOptions = {
     fadeDuration: 300,
     crossSourceCollisions: true
 };
-var Map = (function (Camera$$1) {
+var Map = /*@__PURE__*/(function (Camera$$1) {
     function Map(options) {
         var this$1 = this;
 
@@ -34201,7 +37549,7 @@ var Map = (function (Camera$$1) {
             });
             if (options.bounds) {
                 this.resize();
-                this.fitBounds(options.bounds, { duration: 0 });
+                this.fitBounds(options.bounds, __chunk_1.extend({}, options.fitBoundsOptions, { duration: 0 }));
             }
         }
         this.resize();
@@ -34334,12 +37682,13 @@ var Map = (function (Camera$$1) {
     };
     Map.prototype.on = function on (type, layer, listener) {
         var this$1 = this;
-        var obj;
 
         if (listener === undefined) {
             return Camera$$1.prototype.on.call(this, type, layer);
         }
         var delegatedListener = (function () {
+            var obj;
+
             if (type === 'mouseenter' || type === 'mouseover') {
                 var mousein = false;
                 var mousemove = function (e) {
@@ -34407,13 +37756,11 @@ var Map = (function (Camera$$1) {
         this._delegatedListeners[type] = this._delegatedListeners[type] || [];
         this._delegatedListeners[type].push(delegatedListener);
         for (var event in delegatedListener.delegates) {
-            this$1.on(event, delegatedListener.delegates[event]);
+            this.on(event, delegatedListener.delegates[event]);
         }
         return this;
     };
     Map.prototype.off = function off (type, layer, listener) {
-        var this$1 = this;
-
         if (listener === undefined) {
             return Camera$$1.prototype.off.call(this, type, layer);
         }
@@ -34423,10 +37770,10 @@ var Map = (function (Camera$$1) {
                 var delegatedListener = listeners[i];
                 if (delegatedListener.layer === layer && delegatedListener.listener === listener) {
                     for (var event in delegatedListener.delegates) {
-                        this$1.off(event, delegatedListener.delegates[event]);
+                        this.off(event, delegatedListener.delegates[event]);
                     }
                     listeners.splice(i, 1);
-                    return this$1;
+                    return this;
                 }
             }
         }
@@ -34684,6 +38031,10 @@ var Map = (function (Camera$$1) {
         this.style.setFeatureState(feature, state);
         return this._update();
     };
+    Map.prototype.removeFeatureState = function removeFeatureState (target, key) {
+        this.style.removeFeatureState(target, key);
+        return this._update();
+    };
     Map.prototype.getFeatureState = function getFeatureState (feature) {
         return this.style.getFeatureState(feature);
     };
@@ -34850,15 +38201,13 @@ var Map = (function (Camera$$1) {
         return this;
     };
     Map.prototype.remove = function remove () {
-        var this$1 = this;
-
         if (this._hash)
             { this._hash.remove(); }
-        for (var i = 0, list = this$1._controls; i < list.length; i += 1)
+        for (var i = 0, list = this._controls; i < list.length; i += 1)
             {
             var control = list[i];
 
-            control.onRemove(this$1);
+            control.onRemove(this);
         }
         this._controls = [];
         if (this._frame) {
@@ -34933,8 +38282,10 @@ var Map = (function (Camera$$1) {
         return !!this._repaint;
     };
     prototypeAccessors.repaint.set = function (value) {
-        this._repaint = value;
-        this._update();
+        if (this._repaint !== value) {
+            this._repaint = value;
+            this.triggerRepaint();
+        }
     };
     prototypeAccessors.vertices.get = function () {
         return !!this._vertices;
@@ -35056,7 +38407,7 @@ function applyAnchorClass(element, anchor, prefix) {
     classList.add(("mapboxgl-" + prefix + "-anchor-" + anchor));
 }
 
-var Marker = (function (Evented) {
+var Marker = /*@__PURE__*/(function (Evented) {
     function Marker(options, legacyOptions) {
         Evented.call(this);
         if (options instanceof __chunk_1.window.HTMLElement || legacyOptions) {
@@ -35399,7 +38750,7 @@ function checkGeolocationSupport(callback) {
         callback(supportsGeolocation);
     }
 }
-var GeolocateControl = (function (Evented) {
+var GeolocateControl = /*@__PURE__*/(function (Evented) {
     function GeolocateControl(options) {
         Evented.call(this);
         this.options = __chunk_1.extend({}, defaultOptions$2, options);
@@ -35821,13 +39172,14 @@ var defaultOptions$4 = {
     closeOnClick: true,
     className: ''
 };
-var Popup = (function (Evented) {
+var Popup = /*@__PURE__*/(function (Evented) {
     function Popup(options) {
         Evented.call(this);
         this.options = __chunk_1.extend(Object.create(defaultOptions$4), options);
         __chunk_1.bindAll([
             '_update',
-            '_onClickClose'
+            '_onClickClose',
+            'remove'
         ], this);
     }
 
@@ -35840,6 +39192,7 @@ var Popup = (function (Evented) {
         if (this.options.closeOnClick) {
             this._map.on('click', this._onClickClose);
         }
+        this._map.on('remove', this.remove);
         this._update();
         this.fire(new __chunk_1.Event('open'));
         return this;
@@ -35858,6 +39211,7 @@ var Popup = (function (Evented) {
         if (this._map) {
             this._map.off('move', this._update);
             this._map.off('click', this._onClickClose);
+            this._map.off('remove', this.remove);
             delete this._map;
         }
         this.fire(new __chunk_1.Event('close'));
@@ -36084,5 +39438,5 @@ return exported;
 
 return mapboxgl;
 
-})));
+}));
 //# sourceMappingURL=mapbox-gl-unminified.js.map
