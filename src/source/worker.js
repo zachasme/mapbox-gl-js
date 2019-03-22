@@ -64,6 +64,18 @@ export default class Worker {
             globalRTLTextPlugin['processBidirectionalText'] = rtlTextPlugin.processBidirectionalText;
             globalRTLTextPlugin['processStyledBidirectionalText'] = rtlTextPlugin.processStyledBidirectionalText;
         };
+
+        try {
+            const PerformanceObserver = (this.self: any).PerformanceObserver;
+            if (typeof PerformanceObserver === 'function') {
+                const observer = new PerformanceObserver((list: {getEntries: () => PerformanceResourceTiming[]}) => {
+                    this.actor.send('onWorkerResourceTimings', list.getEntries().map(i => i.toJSON()));
+                });
+                observer.observe({entryTypes: ["resource"]});
+            }
+        } catch (e) {
+            // dont care
+        }
     }
 
     setReferrer(mapID: string, referrer: string) {

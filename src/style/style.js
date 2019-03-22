@@ -1301,6 +1301,10 @@ class Style extends Evented {
     getResource(mapId: string, params: RequestParameters, callback: ResponseCallback<any>): Cancelable {
         return makeRequest(params, callback);
     }
+
+    onWorkerResourceTimings(mapId: string, params: any) {
+        this.fire(new Event('workerresourcetimings', { timings: params }));
+    }
 }
 
 Style.getSourceType = getSourceType;
