@@ -18703,6 +18703,101 @@ function getQuadkey(z, x, y) {
 register('CanonicalTileID', CanonicalTileID);
 register('OverscaledTileID', OverscaledTileID, { omit: ['posMatrix'] });
 
+var performanceExists = typeof performance !== 'undefined';
+var wrapper = {};
+wrapper.getEntriesByName = function (url) {
+    if (performanceExists && performance && performance.getEntriesByName)
+        { return performance.getEntriesByName(url); }
+    else
+        { return false; }
+};
+wrapper.now = function () {
+    if (performanceExists && performance && performance.now)
+        { return performance.now(); }
+    else
+        { return new Date().getTime(); }
+};
+wrapper.mark = function (name) {
+    if (performanceExists && performance && performance.mark)
+        { return performance.mark(name); }
+    else
+        { return false; }
+};
+wrapper.measure = function (name, startMark, endMark) {
+    if (performanceExists && performance && performance.measure)
+        { return performance.measure(name, startMark, endMark); }
+    else
+        { return false; }
+};
+wrapper.clearMarks = function (name) {
+    if (performanceExists && performance && performance.clearMarks)
+        { return performance.clearMarks(name); }
+    else
+        { return false; }
+};
+wrapper.clearMeasures = function (name) {
+    if (performanceExists && performance && performance.clearMeasures)
+        { return performance.clearMeasures(name); }
+    else
+        { return false; }
+};
+var timeOrigin = performanceExists && performance.timeOrigin || new Date().getTime() - wrapper.now();
+var Performance = function Performance(request) {
+    this._marks = {
+        start: [
+            request.url,
+            'start'
+        ].join('#'),
+        end: [
+            request.url,
+            'end'
+        ].join('#'),
+        measure: request.url.toString()
+    };
+    wrapper.mark(this._marks.start);
+};
+Performance.prototype.finish = function finish () {
+    wrapper.mark(this._marks.end);
+    var resourceTimingData = wrapper.getEntriesByName(this._marks.measure);
+    if (resourceTimingData.length === 0) {
+        wrapper.measure(this._marks.measure, this._marks.start, this._marks.end);
+        resourceTimingData = wrapper.getEntriesByName(this._marks.measure);
+        wrapper.clearMarks(this._marks.start);
+        wrapper.clearMarks(this._marks.end);
+        wrapper.clearMeasures(this._marks.measure);
+    }
+    return resourceTimingData;
+};
+var Timeline = function Timeline() {
+    this._marks = {};
+    bindAll([
+        'mark',
+        'wrapCallback',
+        'finish'
+    ], this);
+    this.mark('');
+};
+Timeline.prototype.mark = function mark (id) {
+    this._marks[id] = this._marks[id] || [];
+    this._marks[id].push(wrapper.now());
+};
+Timeline.prototype.finish = function finish () {
+    this.mark('');
+    return extend({}, this._marks, { timeOrigin: timeOrigin });
+};
+Timeline.prototype.wrapCallback = function wrapCallback (callback) {
+        var this$1 = this;
+
+    return function (error, result) {
+        var perfTiming = this$1.finish();
+        var modifiedResult = result ? extend({}, result, { perfTiming: perfTiming }) : result;
+        return callback(error, modifiedResult);
+    };
+};
+wrapper.Performance = Performance;
+wrapper.Timeline = Timeline;
+wrapper.supported = performanceExists;
+
 var DEMData = function DEMData(uid, data, encoding) {
     this.uid = uid;
     if (data.height !== data.width)
@@ -19873,6 +19968,7 @@ exports.Event = Event;
 exports.ErrorEvent = ErrorEvent;
 exports.postTurnstileEvent = postTurnstileEvent;
 exports.postMapLoadEvent = postMapLoadEvent;
+exports.performance = wrapper;
 exports.normalizeTileURL = normalizeTileURL;
 exports.OverscaledTileID = OverscaledTileID;
 exports.EXTENT = EXTENT;
@@ -20988,9 +21084,11 @@ var WorkerTile = function WorkerTile(params) {
     this.collectResourceTiming = !!params.collectResourceTiming;
     this.returnDependencies = !!params.returnDependencies;
 };
-WorkerTile.prototype.parse = function parse (data, layerIndex, actor, callback) {
+WorkerTile.prototype.parse = function parse (data, layerIndex, actor, callback, _perfMark) {
         var this$1 = this;
 
+    var perfMark = _perfMark || function (_) {
+    };
     this.status = 'parsing';
     this.data = data;
     this.collisionBoxArray = new __chunk_1.CollisionBoxArray();
@@ -21005,6 +21103,7 @@ WorkerTile.prototype.parse = function parse (data, layerIndex, actor, callback) 
         glyphDependencies: {}
     };
     var layerFamilies = layerIndex.familiesBySource[this.source];
+    perfMark('pop');
     for (var sourceLayerId in layerFamilies) {
         var sourceLayer = data.layers[sourceLayerId];
         if (!sourceLayer) {
@@ -21048,6 +21147,7 @@ WorkerTile.prototype.parse = function parse (data, layerIndex, actor, callback) 
             featureIndex.bucketLayerIDs.push(family.map(function (l) { return l.id; }));
         }
     }
+    perfMark('pop');
     var error;
     var glyphMap;
     var iconMap;
@@ -21096,6 +21196,7 @@ WorkerTile.prototype.parse = function parse (data, layerIndex, actor, callback) 
         if (error) {
             return callback(error);
         } else if (glyphMap && iconMap && patternMap) {
+            perfMark('prep');
             var glyphAtlas = new GlyphAtlas(glyphMap);
             var imageAtlas = new __chunk_1.ImageAtlas(iconMap, patternMap);
             for (var key in buckets) {
@@ -21108,6 +21209,7 @@ WorkerTile.prototype.parse = function parse (data, layerIndex, actor, callback) 
                     bucket.addFeatures(options, imageAtlas.patternPositions);
                 }
             }
+            perfMark('prep');
             this.status = 'done';
             callback(null, {
                 buckets: __chunk_1.values(buckets).filter(function (b) { return !b.isEmpty(); }),
@@ -21130,66 +21232,6 @@ function recalculateLayers(layers, zoom) {
         layer.recalculate(parameters);
     }
 }
-
-var performanceExists = typeof performance !== 'undefined';
-var wrapper = {};
-wrapper.getEntriesByName = function (url) {
-    if (performanceExists && performance && performance.getEntriesByName)
-        { return performance.getEntriesByName(url); }
-    else
-        { return false; }
-};
-wrapper.mark = function (name) {
-    if (performanceExists && performance && performance.mark)
-        { return performance.mark(name); }
-    else
-        { return false; }
-};
-wrapper.measure = function (name, startMark, endMark) {
-    if (performanceExists && performance && performance.measure)
-        { return performance.measure(name, startMark, endMark); }
-    else
-        { return false; }
-};
-wrapper.clearMarks = function (name) {
-    if (performanceExists && performance && performance.clearMarks)
-        { return performance.clearMarks(name); }
-    else
-        { return false; }
-};
-wrapper.clearMeasures = function (name) {
-    if (performanceExists && performance && performance.clearMeasures)
-        { return performance.clearMeasures(name); }
-    else
-        { return false; }
-};
-var Performance = function Performance(request) {
-    this._marks = {
-        start: [
-            request.url,
-            'start'
-        ].join('#'),
-        end: [
-            request.url,
-            'end'
-        ].join('#'),
-        measure: request.url.toString()
-    };
-    wrapper.mark(this._marks.start);
-};
-Performance.prototype.finish = function finish () {
-    wrapper.mark(this._marks.end);
-    var resourceTimingData = wrapper.getEntriesByName(this._marks.measure);
-    if (resourceTimingData.length === 0) {
-        wrapper.measure(this._marks.measure, this._marks.start, this._marks.end);
-        resourceTimingData = wrapper.getEntriesByName(this._marks.measure);
-        wrapper.clearMarks(this._marks.start);
-        wrapper.clearMarks(this._marks.end);
-        wrapper.clearMeasures(this._marks.measure);
-    }
-    return resourceTimingData;
-};
-wrapper.Performance = Performance;
 
 function loadVectorTile(params, callback) {
     var request = __chunk_1.getArrayBuffer(params.request, function (err, data, cacheControl, expires) {
@@ -21216,15 +21258,19 @@ var VectorTileWorkerSource = function VectorTileWorkerSource(actor, layerIndex, 
     this.loading = {};
     this.loaded = {};
 };
-VectorTileWorkerSource.prototype.loadTile = function loadTile (params, callback) {
+VectorTileWorkerSource.prototype.loadTile = function loadTile (params, callback, perfMark) {
         var this$1 = this;
+        if ( perfMark === void 0 ) perfMark = function (_) {
+};
 
     var uid = params.uid;
     if (!this.loading)
         { this.loading = {}; }
-    var perf = params && params.request && params.request.collectResourceTiming ? new wrapper.Performance(params.request) : false;
+    var perf = params && params.request && params.request.collectResourceTiming ? new __chunk_1.performance.Performance(params.request) : false;
     var workerTile = this.loading[uid] = new WorkerTile(params);
+    perfMark('lt');
     workerTile.abort = this.loadVectorData(params, function (err, response) {
+        perfMark('lt');
         delete this$1.loading[uid];
         if (err || !response) {
             workerTile.status = 'done';
@@ -21248,10 +21294,10 @@ VectorTileWorkerSource.prototype.loadTile = function loadTile (params, callback)
             if (err || !result)
                 { return callback(err); }
             callback(null, __chunk_1.extend({ rawTileData: rawTileData.slice(0) }, result, cacheControl, resourceTiming));
-        });
+        }, perfMark);
         this$1.loaded = this$1.loaded || {};
         this$1.loaded[uid] = workerTile;
-    });
+    }, perfMark);
 };
 VectorTileWorkerSource.prototype.reloadTile = function reloadTile (params, callback) {
     var loaded = this.loaded, uid = params.uid, vtSource = this;
@@ -22943,7 +22989,7 @@ var GeoJSONWorkerSource = /*@__PURE__*/(function (VectorTileWorkerSource$$1) {
         var params = this._pendingLoadDataParams;
         delete this._pendingCallback;
         delete this._pendingLoadDataParams;
-        var perf = params && params.request && params.request.collectResourceTiming ? new wrapper.Performance(params.request) : false;
+        var perf = params && params.request && params.request.collectResourceTiming ? new __chunk_1.performance.Performance(params.request) : false;
         this.loadGeoJSON(params, function (err, data) {
             if (err || !data) {
                 return callback(err);
@@ -23096,6 +23142,16 @@ var Worker$1 = function Worker(self) {
         __chunk_1.plugin['processBidirectionalText'] = rtlTextPlugin.processBidirectionalText;
         __chunk_1.plugin['processStyledBidirectionalText'] = rtlTextPlugin.processStyledBidirectionalText;
     };
+    try {
+        var PerformanceObserver = this.self.PerformanceObserver;
+        if (typeof PerformanceObserver === 'function') {
+            var observer = new PerformanceObserver(function (list) {
+                this$1.actor.send('onWorkerResourceTimings', JSON.parse(JSON.stringify(list.getEntries())));
+            });
+            observer.observe({ entryTypes: ['resource'] });
+        }
+    } catch (e) {
+    }
 };
 Worker$1.prototype.setReferrer = function setReferrer (mapID, referrer) {
     this.referrer = referrer;
@@ -23109,7 +23165,8 @@ Worker$1.prototype.updateLayers = function updateLayers (mapId, params, callback
     callback();
 };
 Worker$1.prototype.loadTile = function loadTile (mapId, params, callback) {
-    this.getWorkerSource(mapId, params.type, params.source).loadTile(params, callback);
+    var timeline = new __chunk_1.performance.Timeline();
+    this.getWorkerSource(mapId, params.type, params.source).loadTile(params, timeline.wrapCallback(callback), timeline.mark);
 };
 Worker$1.prototype.loadDEMTile = function loadDEMTile (mapId, params, callback) {
     this.getDEMWorkerSource(mapId, params.source).loadTile(params, callback);
@@ -24243,6 +24300,8 @@ var VectorTileSource = /*@__PURE__*/(function (Evented) {
         return __chunk_1.extend({}, this._options);
     };
     VectorTileSource.prototype.loadTile = function loadTile (tile, callback) {
+        var start = __chunk_1.performance.now();
+        var timeline = new __chunk_1.performance.Timeline();
         var url = __chunk_1.normalizeTileURL(tile.tileID.canonical.url(this.tiles, this.scheme), this.url);
         var params = {
             request: this.map._transformRequest(url, __chunk_1.ResourceType.Tile),
@@ -24274,6 +24333,22 @@ var VectorTileSource = /*@__PURE__*/(function (Evented) {
             if (this.map._refreshExpiredTiles && data)
                 { tile.setExpiryData(data); }
             tile.loadVectorData(data, this.map.painter);
+            if (data && data.perfTiming && __chunk_1.performance.supported) {
+                var worker = data.perfTiming;
+                var main = timeline.finish();
+                tile.perfTiming = { start: start };
+                Object.keys(main).forEach(function (m) {
+                    if (Array.isArray(main[m])) {
+                        (tile.perfTiming || {})[("m" + m)] = main[m].map(function (d) { return d - start; });
+                    }
+                });
+                var workerOffset = worker.timeOrigin - main.timeOrigin;
+                Object.keys(worker).forEach(function (m) {
+                    if (Array.isArray(worker[m])) {
+                        (tile.perfTiming || {})[("w" + m)] = worker[m].map(function (d) { return d + workerOffset - start; });
+                    }
+                });
+            }
             callback(null);
             if (tile.reloadCallback) {
                 this.loadTile(tile, tile.reloadCallback);
@@ -29830,6 +29905,9 @@ var Style = /*@__PURE__*/(function (Evented) {
     };
     Style.prototype.getResource = function getResource (mapId, params, callback) {
         return __chunk_1.makeRequest(params, callback);
+    };
+    Style.prototype.onWorkerResourceTimings = function onWorkerResourceTimings (mapId, params) {
+        this.fire(new __chunk_1.Event('otgm.workerresourcetimings', { timings: params }));
     };
 
     return Style;
