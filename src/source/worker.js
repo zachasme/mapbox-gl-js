@@ -6,6 +6,7 @@ import StyleLayerIndex from '../style/style_layer_index';
 import VectorTileWorkerSource from './vector_tile_worker_source';
 import RasterDEMTileWorkerSource from './raster_dem_tile_worker_source';
 import GeoJSONWorkerSource from './geojson_worker_source';
+import performance from '../util/performance';
 import assert from 'assert';
 import { plugin as globalRTLTextPlugin } from './rtl_text_plugin';
 
@@ -69,7 +70,7 @@ export default class Worker {
             const PerformanceObserver = (this.self: any).PerformanceObserver;
             if (typeof PerformanceObserver === 'function') {
                 const observer = new PerformanceObserver((list: {getEntries: () => PerformanceResourceTiming[]}) => {
-                    this.actor.send('onWorkerResourceTimings', list.getEntries().map(i => i.toJSON()));
+                    this.actor.send('onWorkerResourceTimings', JSON.parse(JSON.stringify(list.getEntries())));
                 });
                 observer.observe({entryTypes: ["resource"]});
             }
@@ -94,7 +95,8 @@ export default class Worker {
 
     loadTile(mapId: string, params: WorkerTileParameters & {type: string}, callback: WorkerTileCallback) {
         assert(params.type);
-        this.getWorkerSource(mapId, params.type, params.source).loadTile(params, callback);
+        const timeline = new performance.Timeline();
+        this.getWorkerSource(mapId, params.type, params.source).loadTile(params, timeline.wrapCallback(callback), timeline.mark);
     }
 
     loadDEMTile(mapId: string, params: WorkerDEMTileParameters, callback: WorkerDEMTileCallback) {
