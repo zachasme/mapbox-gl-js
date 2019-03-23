@@ -156,6 +156,7 @@ class VectorTileSource extends Evented implements Source {
                     }
                 });
                 const workerOffset = worker.timeOrigin - main.timeOrigin;
+                (tile.perfTiming || {}).workerOffset = workerOffset;
                 Object.keys(worker).forEach(m => {
                     if (Array.isArray(worker[m])) {
                         (tile.perfTiming || {})[`w${m}`] = worker[m].map(d => d + workerOffset - start);
