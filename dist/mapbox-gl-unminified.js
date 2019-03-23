@@ -24343,6 +24343,7 @@ var VectorTileSource = /*@__PURE__*/(function (Evented) {
                     }
                 });
                 var workerOffset = worker.timeOrigin - main.timeOrigin;
+                (tile.perfTiming || {}).workerOffset = workerOffset;
                 Object.keys(worker).forEach(function (m) {
                     if (Array.isArray(worker[m])) {
                         (tile.perfTiming || {})[("w" + m)] = worker[m].map(function (d) { return d + workerOffset - start; });
