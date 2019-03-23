@@ -1303,7 +1303,7 @@ class Style extends Evented {
     }
 
     onWorkerResourceTimings(mapId: string, params: any) {
-        this.fire(new Event('workerresourcetimings', { timings: params }));
+        this.fire(new Event('otgm.workerresourcetimings', { timings: params }));
     }
 }
 

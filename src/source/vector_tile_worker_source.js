@@ -37,7 +37,7 @@ export type LoadVectorTileResult = {
 export type LoadVectorDataCallback = Callback<?LoadVectorTileResult>;
 
 export type AbortVectorData = () => void;
-export type LoadVectorData = (params: WorkerTileParameters, callback: LoadVectorDataCallback) => ?AbortVectorData;
+export type LoadVectorData = (params: WorkerTileParameters, callback: LoadVectorDataCallback, perfMark: (string) => void) => ?AbortVectorData;
 
 /**
  * @private
@@ -96,7 +96,7 @@ class VectorTileWorkerSource implements WorkerSource {
      * {@link VectorTileWorkerSource#loadVectorData} (which by default expects
      * a `params.url` property) for fetching and producing a VectorTile object.
      */
-    loadTile(params: WorkerTileParameters, callback: WorkerTileCallback) {
+    loadTile(params: WorkerTileParameters, callback: WorkerTileCallback, perfMark: (string) => void = (_: string) => {}) {
         const uid = params.uid;
 
         if (!this.loading)
@@ -106,7 +106,9 @@ class VectorTileWorkerSource implements WorkerSource {
             new performance.Performance(params.request) : false;
 
         const workerTile = this.loading[uid] = new WorkerTile(params);
+        perfMark('lt');
         workerTile.abort = this.loadVectorData(params, (err, response) => {
+            perfMark('lt');
             delete this.loading[uid];
 
             if (err || !response) {
@@ -135,11 +137,11 @@ class VectorTileWorkerSource implements WorkerSource {
 
                 // Transferring a copy of rawTileData because the worker needs to retain its copy.
                 callback(null, extend({rawTileData: rawTileData.slice(0)}, result, cacheControl, resourceTiming));
-            });
+            }, perfMark);
 
             this.loaded = this.loaded || {};
             this.loaded[uid] = workerTile;
-        });
+        }, perfMark);
     }
 
     /**

@@ -8,6 +8,7 @@ import { normalizeTileURL as normalizeURL, postTurnstileEvent, postMapLoadEvent 
 import TileBounds from './tile_bounds';
 import { ResourceType } from '../util/ajax';
 import browser from '../util/browser';
+import performance from '../util/performance';
 
 import type {Source} from './source';
 import type {OverscaledTileID} from './tile_id';
@@ -106,6 +107,8 @@ class VectorTileSource extends Evented implements Source {
     }
 
     loadTile(tile: Tile, callback: Callback<void>) {
+        const start = performance.now();
+        const timeline = new performance.Timeline();
         const url = normalizeURL(tile.tileID.canonical.url(this.tiles, this.scheme), this.url);
         const params = {
             request: this.map._transformRequest(url, ResourceType.Tile),
@@ -142,6 +145,23 @@ class VectorTileSource extends Evented implements Source {
 
             if (this.map._refreshExpiredTiles && data) tile.setExpiryData(data);
             tile.loadVectorData(data, this.map.painter);
+
+            if (data && data.perfTiming && performance.supported) {
+                const worker: {[string]: any} = data.perfTiming;
+                const main: {[string]: any} = timeline.finish();
+                tile.perfTiming = {start};
+                Object.keys(main).forEach(m => {
+                    if (Array.isArray(main[m])) {
+                        (tile.perfTiming || {})[`m${m}`] = main[m].map(d => d - start);
+                    }
+                });
+                const workerOffset = worker.timeOrigin - main.timeOrigin;
+                Object.keys(worker).forEach(m => {
+                    if (Array.isArray(worker[m])) {
+                        (tile.perfTiming || {})[`w${m}`] = worker[m].map(d => d + workerOffset - start);
+                    }
+                });
+            }
 
             callback(null);
 
