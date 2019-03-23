@@ -37990,6 +37990,23 @@ var Map = /*@__PURE__*/(function (Camera$$1) {
         }
         return true;
     };
+    Map.prototype.getLoadedRatio = function getLoadedRatio (sourceId) {
+        var total = 0, loaded = 0;
+        var sources = this.style && this.style.sourceCaches;
+        for (var id in sources) {
+            if (sourceId && id !== sourceId)
+                { continue; }
+            var source = sources[id];
+            var tiles = source._tiles;
+            for (var t in tiles) {
+                var tile = tiles[t];
+                total++;
+                if (tile.state === 'loaded' || tile.state === 'errored')
+                    { loaded++; }
+            }
+        }
+        return loaded / (total || 1);
+    };
     Map.prototype.addSourceType = function addSourceType (name, SourceType, callback) {
         return this.style.addSourceType(name, SourceType, callback);
     };
