@@ -96,7 +96,7 @@ class VectorTileWorkerSource implements WorkerSource {
      * {@link VectorTileWorkerSource#loadVectorData} (which by default expects
      * a `params.url` property) for fetching and producing a VectorTile object.
      */
-    loadTile(params: WorkerTileParameters, callback: WorkerTileCallback, perfMark: (string) => void = (_: string) => {}) {
+    loadTile(params: WorkerTileParameters, callback: WorkerTileCallback, perfMark: (?string) => void = (_: ?string) => {}) {
         const uid = params.uid;
 
         if (!this.loading)
@@ -106,9 +106,8 @@ class VectorTileWorkerSource implements WorkerSource {
             new performance.Performance(params.request) : false;
 
         const workerTile = this.loading[uid] = new WorkerTile(params);
-        perfMark('lt');
         workerTile.abort = this.loadVectorData(params, (err, response) => {
-            perfMark('lt');
+            perfMark();
             delete this.loading[uid];
 
             if (err || !response) {
