@@ -18775,14 +18775,15 @@ var Timeline = function Timeline() {
         'wrapCallback',
         'finish'
     ], this);
-    this.mark('');
+    this.mark();
 };
 Timeline.prototype.mark = function mark (id) {
-    this._marks[id] = this._marks[id] || [];
-    this._marks[id].push(wrapper.now());
+    var _id = id || '';
+    this._marks[_id] = this._marks[_id] || [];
+    this._marks[_id].push(wrapper.now());
 };
 Timeline.prototype.finish = function finish () {
-    this.mark('');
+    this.mark();
     return extend({}, this._marks, { timeOrigin: timeOrigin });
 };
 Timeline.prototype.wrapCallback = function wrapCallback (callback) {
@@ -21103,7 +21104,6 @@ WorkerTile.prototype.parse = function parse (data, layerIndex, actor, callback, 
         glyphDependencies: {}
     };
     var layerFamilies = layerIndex.familiesBySource[this.source];
-    perfMark('pop');
     for (var sourceLayerId in layerFamilies) {
         var sourceLayer = data.layers[sourceLayerId];
         if (!sourceLayer) {
@@ -21147,7 +21147,7 @@ WorkerTile.prototype.parse = function parse (data, layerIndex, actor, callback, 
             featureIndex.bucketLayerIDs.push(family.map(function (l) { return l.id; }));
         }
     }
-    perfMark('pop');
+    perfMark();
     var error;
     var glyphMap;
     var iconMap;
@@ -21196,7 +21196,7 @@ WorkerTile.prototype.parse = function parse (data, layerIndex, actor, callback, 
         if (error) {
             return callback(error);
         } else if (glyphMap && iconMap && patternMap) {
-            perfMark('prep');
+            perfMark();
             var glyphAtlas = new GlyphAtlas(glyphMap);
             var imageAtlas = new __chunk_1.ImageAtlas(iconMap, patternMap);
             for (var key in buckets) {
@@ -21209,7 +21209,6 @@ WorkerTile.prototype.parse = function parse (data, layerIndex, actor, callback, 
                     bucket.addFeatures(options, imageAtlas.patternPositions);
                 }
             }
-            perfMark('prep');
             this.status = 'done';
             callback(null, {
                 buckets: __chunk_1.values(buckets).filter(function (b) { return !b.isEmpty(); }),
@@ -21268,9 +21267,8 @@ VectorTileWorkerSource.prototype.loadTile = function loadTile (params, callback,
         { this.loading = {}; }
     var perf = params && params.request && params.request.collectResourceTiming ? new __chunk_1.performance.Performance(params.request) : false;
     var workerTile = this.loading[uid] = new WorkerTile(params);
-    perfMark('lt');
     workerTile.abort = this.loadVectorData(params, function (err, response) {
-        perfMark('lt');
+        perfMark();
         delete this$1.loading[uid];
         if (err || !response) {
             workerTile.status = 'done';
