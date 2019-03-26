@@ -77,7 +77,7 @@ export interface WorkerSource {
      * back to the main thread for rendering.  Should call the callback with:
      * `{ buckets, featureIndex, collisionIndex, rawTileData}`.
      */
-    loadTile(params: WorkerTileParameters, callback: WorkerTileCallback, perfMark: (string) => void): void;
+    loadTile(params: WorkerTileParameters, callback: WorkerTileCallback, perfMark: (?string) => void): void;
 
     /**
      * Re-parses a tile that has already been loaded.  Yields the same data as

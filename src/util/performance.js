@@ -98,16 +98,17 @@ class Timeline {
     constructor () {
         this._marks = {};
         bindAll(['mark', 'wrapCallback', 'finish'], this);
-        this.mark('');
+        this.mark();
     }
 
-    mark(id: string): void {
-        this._marks[id] = this._marks[id] || [];
-        this._marks[id].push(wrapper.now());
+    mark(id: ?string): void {
+        const _id = id || '';
+        this._marks[_id] = this._marks[_id] || [];
+        this._marks[_id].push(wrapper.now());
     }
 
     finish(): {[string]: any} {
-        this.mark('');
+        this.mark();
         return extend({}, this._marks, {timeOrigin});
     }
 

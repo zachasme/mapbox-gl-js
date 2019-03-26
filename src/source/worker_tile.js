@@ -60,8 +60,8 @@ class WorkerTile {
         this.returnDependencies = !!params.returnDependencies;
     }
 
-    parse(data: VectorTile, layerIndex: StyleLayerIndex, actor: Actor, callback: WorkerTileCallback, _perfMark: ?(string) => void) {
-        const perfMark = _perfMark || function (_: string) {};
+    parse(data: VectorTile, layerIndex: StyleLayerIndex, actor: Actor, callback: WorkerTileCallback, _perfMark: ?(?string) => void) {
+        const perfMark = _perfMark || function (_: ?string) {};
         this.status = 'parsing';
         this.data = data;
 
@@ -81,7 +81,6 @@ class WorkerTile {
         };
 
         const layerFamilies = layerIndex.familiesBySource[this.source];
-        perfMark('pop');
         for (const sourceLayerId in layerFamilies) {
             const sourceLayer = data.layers[sourceLayerId];
             if (!sourceLayer) {
@@ -125,7 +124,7 @@ class WorkerTile {
                 featureIndex.bucketLayerIDs.push(family.map((l) => l.id));
             }
         }
-        perfMark('pop');
+        perfMark();
 
         let error: ?Error;
         let glyphMap: ?{[string]: {[number]: ?StyleGlyph}};
@@ -177,7 +176,7 @@ class WorkerTile {
             if (error) {
                 return callback(error);
             } else if (glyphMap && iconMap && patternMap) {
-                perfMark('prep');
+                perfMark();
                 const glyphAtlas = new GlyphAtlas(glyphMap);
                 const imageAtlas = new ImageAtlas(iconMap, patternMap);
 
@@ -194,7 +193,6 @@ class WorkerTile {
                         bucket.addFeatures(options, imageAtlas.patternPositions);
                     }
                 }
-                perfMark('prep');
 
                 this.status = 'done';
                 callback(null, {
