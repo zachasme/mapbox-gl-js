@@ -18742,6 +18742,7 @@ wrapper.clearMeasures = function (name) {
         { return false; }
 };
 var timeOrigin = performanceExists && performance.timeOrigin || new Date().getTime() - wrapper.now();
+wrapper.timeOrigin = timeOrigin;
 var Performance = function Performance(request) {
     this._marks = {
         start: [
@@ -23144,7 +23145,10 @@ var Worker$1 = function Worker(self) {
         var PerformanceObserver = this.self.PerformanceObserver;
         if (typeof PerformanceObserver === 'function') {
             var observer = new PerformanceObserver(function (list) {
-                this$1.actor.send('onWorkerResourceTimings', JSON.parse(JSON.stringify(list.getEntries())));
+                this$1.actor.send('onWorkerResourceTimings', {
+                    timings: JSON.parse(JSON.stringify(list.getEntries())),
+                    timeOrigin: __chunk_1.performance.timeOrigin
+                });
             });
             observer.observe({ entryTypes: ['resource'] });
         }
@@ -29905,8 +29909,14 @@ var Style = /*@__PURE__*/(function (Evented) {
     Style.prototype.getResource = function getResource (mapId, params, callback) {
         return __chunk_1.makeRequest(params, callback);
     };
-    Style.prototype.onWorkerResourceTimings = function onWorkerResourceTimings (mapId, params) {
-        this.fire(new __chunk_1.Event('otgm.workerresourcetimings', { timings: params }));
+    Style.prototype.onWorkerResourceTimings = function onWorkerResourceTimings (mapId, ref) {
+        var timings = ref.timings;
+        var timeOrigin = ref.timeOrigin; if ( timeOrigin === void 0 ) timeOrigin = 0;
+
+        this.fire(new __chunk_1.Event('otgm.workerresourcetimings', {
+            timings: timings,
+            offset: timeOrigin - (__chunk_1.performance.timeOrigin || 0)
+        }));
     };
 
     return Style;
