@@ -70,7 +70,10 @@ export default class Worker {
             const PerformanceObserver = (this.self: any).PerformanceObserver;
             if (typeof PerformanceObserver === 'function') {
                 const observer = new PerformanceObserver((list: {getEntries: () => PerformanceResourceTiming[]}) => {
-                    this.actor.send('onWorkerResourceTimings', JSON.parse(JSON.stringify(list.getEntries())));
+                    this.actor.send('onWorkerResourceTimings', {
+                        timings: JSON.parse(JSON.stringify(list.getEntries())),
+                        timeOrigin: performance.timeOrigin
+                    });
                 });
                 observer.observe({entryTypes: ["resource"]});
             }

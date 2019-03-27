@@ -26,6 +26,7 @@ import SourceCache from '../source/source_cache';
 import GeoJSONSource from '../source/geojson_source';
 import styleSpec from '../style-spec/reference/latest';
 import getWorkerPool from '../util/global_worker_pool';
+import performance from '../util/performance';
 import deref from '../style-spec/deref';
 import diffStyles, {diffLayers, operations as diffOperations} from '../style-spec/diff';
 import {
@@ -1297,8 +1298,11 @@ class Style extends Evented {
         return makeRequest(params, callback);
     }
 
-    onWorkerResourceTimings(mapId: string, params: any) {
-        this.fire(new Event('otgm.workerresourcetimings', { timings: params }));
+    onWorkerResourceTimings(mapId: string, {timings, timeOrigin = 0}: any) {
+        this.fire(new Event('otgm.workerresourcetimings', {
+            timings,
+            offset: timeOrigin - (performance.timeOrigin || 0)
+        }));
     }
 }
 

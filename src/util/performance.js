@@ -53,6 +53,7 @@ wrapper.clearMeasures = (name: string) => {
 };
 
 const timeOrigin = (performanceExists && (performance: any).timeOrigin) || (new Date().getTime() - wrapper.now());
+wrapper.timeOrigin = timeOrigin;
 
 /**
  * Safe wrapper for the performance resource timing API in web workers with graceful degradation
