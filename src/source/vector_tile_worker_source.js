@@ -146,7 +146,7 @@ class VectorTileWorkerSource implements WorkerSource {
     /**
      * Implements {@link WorkerSource#reloadTile}.
      */
-    reloadTile(params: WorkerTileParameters, callback: WorkerTileCallback) {
+    reloadTile(params: WorkerTileParameters, callback: WorkerTileCallback, perfMark: (?string) => void = (_: ?string) => {}) {
         const loaded = this.loaded,
             uid = params.uid,
             vtSource = this;
@@ -158,7 +158,7 @@ class VectorTileWorkerSource implements WorkerSource {
                 const reloadCallback = workerTile.reloadCallback;
                 if (reloadCallback) {
                     delete workerTile.reloadCallback;
-                    workerTile.parse(workerTile.vectorTile, vtSource.layerIndex, vtSource.actor, reloadCallback);
+                    workerTile.parse(workerTile.vectorTile, vtSource.layerIndex, vtSource.actor, reloadCallback, perfMark);
                 }
                 callback(err, data);
             };
@@ -168,7 +168,7 @@ class VectorTileWorkerSource implements WorkerSource {
             } else if (workerTile.status === 'done') {
                 // if there was no vector tile data on the initial load, don't try and re-parse tile
                 if (workerTile.vectorTile) {
-                    workerTile.parse(workerTile.vectorTile, this.layerIndex, this.actor, done);
+                    workerTile.parse(workerTile.vectorTile, this.layerIndex, this.actor, done, perfMark);
                 } else {
                     done();
                 }
