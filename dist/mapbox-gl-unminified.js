@@ -21298,7 +21298,10 @@ VectorTileWorkerSource.prototype.loadTile = function loadTile (params, callback,
         this$1.loaded[uid] = workerTile;
     }, perfMark);
 };
-VectorTileWorkerSource.prototype.reloadTile = function reloadTile (params, callback) {
+VectorTileWorkerSource.prototype.reloadTile = function reloadTile (params, callback, perfMark) {
+        if ( perfMark === void 0 ) perfMark = function (_) {
+};
+
     var loaded = this.loaded, uid = params.uid, vtSource = this;
     if (loaded && loaded[uid]) {
         var workerTile = loaded[uid];
@@ -21307,7 +21310,7 @@ VectorTileWorkerSource.prototype.reloadTile = function reloadTile (params, callb
             var reloadCallback = workerTile.reloadCallback;
             if (reloadCallback) {
                 delete workerTile.reloadCallback;
-                workerTile.parse(workerTile.vectorTile, vtSource.layerIndex, vtSource.actor, reloadCallback);
+                workerTile.parse(workerTile.vectorTile, vtSource.layerIndex, vtSource.actor, reloadCallback, perfMark);
             }
             callback(err, data);
         };
@@ -21315,7 +21318,7 @@ VectorTileWorkerSource.prototype.reloadTile = function reloadTile (params, callb
             workerTile.reloadCallback = done;
         } else if (workerTile.status === 'done') {
             if (workerTile.vectorTile) {
-                workerTile.parse(workerTile.vectorTile, this.layerIndex, this.actor, done);
+                workerTile.parse(workerTile.vectorTile, this.layerIndex, this.actor, done, perfMark);
             } else {
                 done();
             }
@@ -23174,7 +23177,8 @@ Worker$1.prototype.loadDEMTile = function loadDEMTile (mapId, params, callback) 
     this.getDEMWorkerSource(mapId, params.source).loadTile(params, callback);
 };
 Worker$1.prototype.reloadTile = function reloadTile (mapId, params, callback) {
-    this.getWorkerSource(mapId, params.type, params.source).reloadTile(params, callback);
+    var timeline = new __chunk_1.performance.Timeline();
+    this.getWorkerSource(mapId, params.type, params.source).reloadTile(params, timeline.wrapCallback(callback), timeline.mark);
 };
 Worker$1.prototype.abortTile = function abortTile (mapId, params, callback) {
     this.getWorkerSource(mapId, params.type, params.source).abortTile(params, callback);
@@ -24317,11 +24321,14 @@ var VectorTileSource = /*@__PURE__*/(function (Evented) {
             showCollisionBoxes: this.map.showCollisionBoxes
         };
         params.request.collectResourceTiming = this._collectResourceTiming;
+        var op = '-';
         if (tile.workerID === undefined || tile.state === 'expired') {
             tile.workerID = this.dispatcher.send('loadTile', params, done.bind(this));
+            op = 'load';
         } else if (tile.state === 'loading') {
             tile.reloadCallback = callback;
         } else {
+            op = 'reload';
             this.dispatcher.send('reloadTile', params, done.bind(this), tile.workerID);
         }
         function done(err, data) {
@@ -24335,10 +24342,13 @@ var VectorTileSource = /*@__PURE__*/(function (Evented) {
             if (this.map._refreshExpiredTiles && data)
                 { tile.setExpiryData(data); }
             tile.loadVectorData(data, this.map.painter);
+            tile.perfTiming = {
+                start: start,
+                op: op
+            };
             if (data && data.perfTiming && __chunk_1.performance.supported) {
                 var worker = data.perfTiming;
                 var main = timeline.finish();
-                tile.perfTiming = { start: start };
                 Object.keys(main).forEach(function (m) {
                     if (Array.isArray(main[m])) {
                         (tile.perfTiming || {})[("m" + m)] = main[m].map(function (d) { return d - start; });
