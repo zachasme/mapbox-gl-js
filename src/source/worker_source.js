@@ -83,7 +83,7 @@ export interface WorkerSource {
      * Re-parses a tile that has already been loaded.  Yields the same data as
      * {@link WorkerSource#loadTile}.
      */
-    reloadTile(params: WorkerTileParameters, callback: WorkerTileCallback): void;
+    reloadTile(params: WorkerTileParameters, callback: WorkerTileCallback, perfMark: (?string) => void): void;
 
     /**
      * Aborts loading a tile that is in progress.

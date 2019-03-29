@@ -108,7 +108,8 @@ export default class Worker {
 
     reloadTile(mapId: string, params: WorkerTileParameters & {type: string}, callback: WorkerTileCallback) {
         assert(params.type);
-        this.getWorkerSource(mapId, params.type, params.source).reloadTile(params, callback);
+        const timeline = new performance.Timeline();
+        this.getWorkerSource(mapId, params.type, params.source).reloadTile(params, timeline.wrapCallback(callback), timeline.mark);
     }
 
     abortTile(mapId: string, params: TileParameters & {type: string}, callback: WorkerTileCallback) {
