@@ -952,7 +952,7 @@
   	},
   	"symbol-sort-key": {
   		type: "number",
-  		doc: "Sorts features in ascending order based on this value. Features with a higher sort key will appear above features with a lower sort key wehn they overlap. Features with a lower sort key will have priority over other features when doing placement.",
+  		doc: "Sorts features in ascending order based on this value. Features with a higher sort key will appear above features with a lower sort key when they overlap. Features with a lower sort key will have priority over other features when doing placement.",
   		"sdk-support": {
   			js: "0.53.0"
   		},
@@ -1749,6 +1749,9 @@
   	"text-justify": {
   		type: "enum",
   		values: {
+  			auto: {
+  				doc: "The text is aligned towards the anchor position."
+  			},
   			left: {
   				doc: "The text is aligned to the left."
   			},
@@ -1776,6 +1779,12 @@
   				android: "5.2.0",
   				ios: "3.7.0",
   				macos: "0.6.0"
+  			},
+  			auto: {
+  				js: "next",
+  				android: "Not yet supported",
+  				ios: "Not yet supported",
+  				macos: "Not yet supported"
   			}
   		},
   		expression: {
@@ -1787,8 +1796,98 @@
   		},
   		"property-type": "data-driven"
   	},
+  	"text-radial-offset": {
+  		type: "number",
+  		units: "ems",
+  		"default": 0,
+  		doc: "Radial offset of text, in the direction of the symbol's anchor. Useful in combination with `text-variable-anchor`, which doesn't support the two-dimensional `text-offset`.",
+  		requires: [
+  			{
+  				"!": "text-offset"
+  			}
+  		],
+  		"property-type": "data-driven",
+  		expression: {
+  			interpolated: true,
+  			parameters: [
+  				"zoom",
+  				"feature"
+  			]
+  		}
+  	},
+  	"text-variable-anchor": {
+  		type: "array",
+  		value: "enum",
+  		values: {
+  			center: {
+  				doc: "The center of the text is placed closest to the anchor."
+  			},
+  			left: {
+  				doc: "The left side of the text is placed closest to the anchor."
+  			},
+  			right: {
+  				doc: "The right side of the text is placed closest to the anchor."
+  			},
+  			top: {
+  				doc: "The top of the text is placed closest to the anchor."
+  			},
+  			bottom: {
+  				doc: "The bottom of the text is placed closest to the anchor."
+  			},
+  			"top-left": {
+  				doc: "The top left corner of the text is placed closest to the anchor."
+  			},
+  			"top-right": {
+  				doc: "The top right corner of the text is placed closest to the anchor."
+  			},
+  			"bottom-left": {
+  				doc: "The bottom left corner of the text is placed closest to the anchor."
+  			},
+  			"bottom-right": {
+  				doc: "The bottom right corner of the text is placed closest to the anchor."
+  			}
+  		},
+  		requires: [
+  			{
+  				"!": "text-anchor"
+  			},
+  			{
+  				"!": "text-offset"
+  			},
+  			{
+  				"symbol-placement": [
+  					"point"
+  				]
+  			}
+  		],
+  		doc: "To increase the chance of placing high-priority labels on the map, you can provide an array of `text-anchor` locations: the render will attempt to place the label at each location, in order, before moving onto the next label. Use `text-justify: auto` to choose justification based on anchor position. To apply an offset, use the `text-radial-offset` instead of the two-dimensional `text-offset`.",
+  		"sdk-support": {
+  			"basic functionality": {
+  				js: "next",
+  				android: "Not yet supported",
+  				ios: "Not yet supported",
+  				macos: "Not yet supported"
+  			},
+  			"data-driven styling": {
+  				js: "Not yet supported",
+  				android: "Not yet supported",
+  				ios: "Not yet supported",
+  				macos: "Not yet supported"
+  			}
+  		},
+  		expression: {
+  			interpolated: false,
+  			parameters: [
+  				"zoom"
+  			]
+  		},
+  		"property-type": "data-constant"
+  	},
   	"text-anchor": {
   		type: "enum",
+  		requires: [
+  			"text-field"
+  		],
   		values: {
   			center: {
   				doc: "The center of the text is placed closest to the anchor."
@@ -1820,9 +1919,6 @@
   		},
   		"default": "center",
   		doc: "Part of the text placed closest to the anchor.",
-  		requires: [
-  			"text-field"
-  		],
   		"sdk-support": {
   			"basic functionality": {
   				js: "0.10.0",
@@ -2023,7 +2119,10 @@
   			0
   		],
   		requires: [
-  			"text-field"
+  			"text-field",
+  			{
+  				"!": "text-radial-offset"
+  			}
   		],
   		"sdk-support": {
   			"basic functionality": {
@@ -2348,7 +2447,7 @@
   			}
   		},
   		"case": {
-  			doc: "Selects the first output whose corresponding test condition evaluates to true.",
+  			doc: "Selects the first output whose corresponding test condition evaluates to true, or the fallback value otherwise.",
   			group: "Decision",
   			"sdk-support": {
   				"basic functionality": {
@@ -2360,7 +2459,7 @@
   			}
   		},
   		match: {
-  			doc: "Selects the output whose label value matches the input value, or the fallback value if no match is found. The input can be any expression (e.g. `[\"get\", \"building_type\"]`). Each label must either be a single literal value or an array of literal values (e.g. `\"a\"` or `[\"c\", \"b\"]`), and those values must be all strings or all numbers. (The values `\"1\"` and `1` cannot both be labels in the same match expression.) Each label must be unique. If the input type does not match the type of the labels, the result will be the fallback value.",
+  			doc: "Selects the output whose label value matches the input value, or the fallback value if no match is found. The input can be any expression (e.g. `[\"get\", \"building_type\"]`). Each label must be either:\n * a single literal value; or\n * an array of literal values, whose values must be all strings or all numbers (e.g. `[100, 101]` or `[\"c\", \"b\"]`). The input matches if any of the values in the array matches, similar to the deprecated `\"in\"` operator.\n\nEach label must be unique. If the input type does not match the type of the labels, the result will be the fallback value.",
   			group: "Decision",
   			"sdk-support": {
   				"basic functionality": {
@@ -5690,98 +5789,103 @@
   }
   };
 
-  function stringify (obj, options) {
-    options = options || {};
-    var indent = JSON.stringify([1], null, get(options, 'indent', 2)).slice(2, -3);
-    var addMargin = get(options, 'margins', false);
-    var maxLength = (indent === '' ? Infinity : get(options, 'maxLength', 80));
-
-    return (function _stringify (obj, currentIndent, reserved) {
-      if (obj && typeof obj.toJSON === 'function') {
-        obj = obj.toJSON();
-      }
-
-      var string = JSON.stringify(obj);
-
-      if (string === undefined) {
-        return string
-      }
-
-      var length = maxLength - currentIndent.length - reserved;
-
-      if (string.length <= length) {
-        var prettified = prettify(string, addMargin);
-        if (prettified.length <= length) {
-          return prettified
-        }
-      }
-
-      if (typeof obj === 'object' && obj !== null) {
-        var nextIndent = currentIndent + indent;
-        var items = [];
-        var delimiters;
-        var comma = function (array, index) {
-          return (index === array.length - 1 ? 0 : 1)
-        };
-
-        if (Array.isArray(obj)) {
-          for (var index = 0; index < obj.length; index++) {
-            items.push(
-              _stringify(obj[index], nextIndent, comma(obj, index)) || 'null'
-            );
-          }
-          delimiters = '[]';
-        } else {
-          Object.keys(obj).forEach(function (key, index, array) {
-            var keyPart = JSON.stringify(key) + ': ';
-            var value = _stringify(obj[key], nextIndent,
-                                   keyPart.length + comma(array, index));
-            if (value !== undefined) {
-              items.push(keyPart + value);
-            }
-          });
-          delimiters = '{}';
-        }
-
-        if (items.length > 0) {
-          return [
-            delimiters[0],
-            indent + items.join(',\n' + nextIndent),
-            delimiters[1]
-          ].join('\n' + currentIndent)
-        }
-      }
-
-      return string
-    }(obj, '', 0))
-  }
-
   // Note: This regex matches even invalid JSON strings, but since we’re
   // working on the output of `JSON.stringify` we know that only valid strings
   // are present (unless the user supplied a weird `options.indent` but in
   // that case we don’t care since the output would be invalid anyway).
-  var stringOrChar = /("(?:[^\\"]|\\.)*")|[:,\][}{]/g;
+  var stringOrChar = /("(?:[^\\"]|\\.)*")|[:,]/g;
 
-  function prettify (string, addMargin) {
-    var m = addMargin ? ' ' : '';
-    var tokens = {
-      '{': '{' + m,
-      '[': '[' + m,
-      '}': m + '}',
-      ']': m + ']',
-      ',': ', ',
-      ':': ': '
-    };
-    return string.replace(stringOrChar, function (match, string) {
-      return string ? match : tokens[match]
-    })
-  }
+  var jsonStringifyPrettyCompact = function stringify(passedObj, options) {
+    var indent, maxLength, replacer;
 
-  function get (options, name, defaultValue) {
-    return (name in options ? options[name] : defaultValue)
-  }
+    options = options || {};
+    indent = JSON.stringify(
+      [1],
+      undefined,
+      options.indent === undefined ? 2 : options.indent
+    ).slice(2, -3);
+    maxLength =
+      indent === ""
+        ? Infinity
+        : options.maxLength === undefined
+        ? 80
+        : options.maxLength;
+    replacer = options.replacer;
 
-  var jsonStringifyPrettyCompact = stringify;
+    return (function _stringify(obj, currentIndent, reserved) {
+      // prettier-ignore
+      var end, index, items, key, keyPart, keys, length, nextIndent, prettified, start, string, value;
+
+      if (obj && typeof obj.toJSON === "function") {
+        obj = obj.toJSON();
+      }
+
+      string = JSON.stringify(obj, replacer);
+
+      if (string === undefined) {
+        return string;
+      }
+
+      length = maxLength - currentIndent.length - reserved;
+
+      if (string.length <= length) {
+        prettified = string.replace(stringOrChar, function(match, stringLiteral) {
+          return stringLiteral || match + " ";
+        });
+        if (prettified.length <= length) {
+          return prettified;
+        }
+      }
+
+      if (replacer != null) {
+        obj = JSON.parse(string);
+        replacer = undefined;
+      }
+
+      if (typeof obj === "object" && obj !== null) {
+        nextIndent = currentIndent + indent;
+        items = [];
+        index = 0;
+
+        if (Array.isArray(obj)) {
+          start = "[";
+          end = "]";
+          length = obj.length;
+          for (; index < length; index++) {
+            items.push(
+              _stringify(obj[index], nextIndent, index === length - 1 ? 0 : 1) ||
+                "null"
+            );
+          }
+        } else {
+          start = "{";
+          end = "}";
+          keys = Object.keys(obj);
+          length = keys.length;
+          for (; index < length; index++) {
+            key = keys[index];
+            keyPart = JSON.stringify(key) + ": ";
+            value = _stringify(
+              obj[key],
+              nextIndent,
+              keyPart.length + (index === length - 1 ? 0 : 1)
+            );
+            if (value !== undefined) {
+              items.push(keyPart + value);
+            }
+          }
+        }
+
+        if (items.length > 0) {
+          return [start, indent + items.join(",\n" + nextIndent), end].join(
+            "\n" + currentIndent
+          );
+        }
+      }
+
+      return string;
+    })(passedObj, "", 0);
+  };
 
   function sortKeysBy(obj, reference) {
       var result = {};
@@ -7210,20 +7314,20 @@
   }
   function eachLayer(style, callback) {
       for (var i = 0, list = style.layers; i < list.length; i += 1) {
-          var layer$$1 = list[i];
-          callback(layer$$1);
+          var layer = list[i];
+          callback(layer);
       }
   }
   function eachProperty(style, options, callback) {
-      function inner(layer$$1, propertyType) {
-          var properties = layer$$1[propertyType];
+      function inner(layer, propertyType) {
+          var properties = layer[propertyType];
           if (!properties) {
               return;
           }
           Object.keys(properties).forEach(function (key) {
               callback({
                   path: [
-                      layer$$1.id,
+                      layer.id,
                       propertyType,
                       key
                   ],
@@ -7236,12 +7340,12 @@
               });
           });
       }
-      eachLayer(style, function (layer$$1) {
+      eachLayer(style, function (layer) {
           if (options.paint) {
-              inner(layer$$1, 'paint');
+              inner(layer, 'paint');
           }
           if (options.layout) {
-              inner(layer$$1, 'layout');
+              inner(layer, 'layout');
           }
       });
   }
@@ -8207,7 +8311,7 @@
                   }
               }
           }
-          throw new RuntimeError(error || 'Could not parse color from value \'' + (typeof input === 'string' ? input : JSON.stringify(input)) + '\'');
+          throw new RuntimeError(error || 'Could not parse color from value \'' + (typeof input === 'string' ? input : String(JSON.stringify(input))) + '\'');
       } else if (this.type.kind === 'number') {
           var value = null;
           for (var i$1 = 0, list$1 = this.args; i$1 < list$1.length; i$1 += 1) {
@@ -9310,17 +9414,17 @@
   };
   At.prototype.evaluate = function evaluate(ctx) {
       var index = this.index.evaluate(ctx);
-      var array$$1 = this.input.evaluate(ctx);
+      var array = this.input.evaluate(ctx);
       if (index < 0) {
           throw new RuntimeError('Array index out of bounds: ' + index + ' < 0.');
       }
-      if (index >= array$$1.length) {
-          throw new RuntimeError('Array index out of bounds: ' + index + ' > ' + (array$$1.length - 1) + '.');
+      if (index >= array.length) {
+          throw new RuntimeError('Array index out of bounds: ' + index + ' > ' + (array.length - 1) + '.');
       }
       if (index !== Math.floor(index)) {
           throw new RuntimeError('Array index must be an integer, but found ' + index + ' instead.');
       }
-      return array$$1[index];
+      return array[index];
   };
   At.prototype.eachChild = function eachChild(fn) {
       fn(this.index);
@@ -9869,7 +9973,7 @@
   function has(key, obj) {
       return key in obj;
   }
-  function get$1(key, obj) {
+  function get(key, obj) {
       var v = obj[key];
       return typeof v === 'undefined' ? null : v;
   }
@@ -9964,7 +10068,7 @@
                   [StringType],
                   function (ctx, ref) {
                       var key = ref[0];
-                      return get$1(key.evaluate(ctx), ctx.properties());
+                      return get(key.evaluate(ctx), ctx.properties());
                   }
               ],
               [
@@ -9975,7 +10079,7 @@
                   function (ctx, ref) {
                       var key = ref[0];
                       var obj = ref[1];
-                      return get$1(key.evaluate(ctx), obj.evaluate(ctx));
+                      return get(key.evaluate(ctx), obj.evaluate(ctx));
                   }
               ]
           ]
@@ -9985,7 +10089,7 @@
           [StringType],
           function (ctx, ref) {
               var key = ref[0];
-              return get$1(key.evaluate(ctx), ctx.featureState || {});
+              return get(key.evaluate(ctx), ctx.featureState || {});
           }
       ],
       'properties': [
@@ -10930,8 +11034,8 @@
           return expression;
       }
       var parsed = expression.value.expression;
-      var isFeatureConstant$$1 = isFeatureConstant(parsed);
-      if (!isFeatureConstant$$1 && !supportsPropertyExpression(propertySpec)) {
+      var isFeatureConstant$1 = isFeatureConstant(parsed);
+      if (!isFeatureConstant$1 && !supportsPropertyExpression(propertySpec)) {
           return error([new ParsingError('', 'data expressions not supported')]);
       }
       var isZoomConstant = isGlobalPropertyConstant(parsed, ['zoom']);
@@ -10947,9 +11051,9 @@
           return error([new ParsingError('', '"interpolate" expressions cannot be used with this property')]);
       }
       if (!zoomCurve) {
-          return success(isFeatureConstant$$1 ? new ZoomConstantExpression('constant', expression.value) : new ZoomConstantExpression('source', expression.value));
+          return success(isFeatureConstant$1 ? new ZoomConstantExpression('constant', expression.value) : new ZoomConstantExpression('source', expression.value));
       }
-      return success(isFeatureConstant$$1 ? new ZoomDependentExpression('camera', expression.value, zoomCurve) : new ZoomDependentExpression('composite', expression.value, zoomCurve));
+      return success(isFeatureConstant$1 ? new ZoomDependentExpression('camera', expression.value, zoomCurve) : new ZoomDependentExpression('composite', expression.value, zoomCurve));
   }
   var StylePropertyFunction = function StylePropertyFunction(parameters, specification) {
       this._parameters = parameters;
@@ -12304,7 +12408,10 @@
       if (arraySpec['min-length'] && array.length < arraySpec['min-length']) {
           return [new ValidationError(key, array, 'array length at least ' + arraySpec['min-length'] + ' expected, length ' + array.length + ' found')];
       }
-      var arrayElementSpec = { 'type': arraySpec.value };
+      var arrayElementSpec = {
+          'type': arraySpec.value,
+          'values': arraySpec.values
+      };
       if (styleSpec.$version < 7) {
           arrayElementSpec.function = arraySpec.function;
       }
@@ -13781,7 +13888,7 @@
   var jsonlint_2 = jsonlint.Parser;
   var jsonlint_3 = jsonlint.parse;
 
-  function validateStyle$$1(style, styleSpec) {
+  function validateStyle(style, styleSpec) {
       if (style instanceof String || typeof style === 'string' || style instanceof Buffer) {
           try {
               style = jsonlint.parse(style.toString());
@@ -13813,22 +13920,22 @@
       eachLayer: eachLayer,
       eachProperty: eachProperty
   };
-  validateStyle$$1.parsed = validateStyle$$1;
-  validateStyle$$1.latest = validateStyle$$1;
+  validateStyle.parsed = validateStyle;
+  validateStyle.latest = validateStyle;
 
-  exports.v8 = v8;
-  exports.latest = v8;
-  exports.format = format;
-  exports.migrate = migrate;
+  exports.Color = Color;
+  exports.ParsingError = ParsingError$1;
+  exports.ValidationError = ValidationError;
   exports.composite = composite;
   exports.diff = diffStyles;
-  exports.ValidationError = ValidationError;
-  exports.ParsingError = ParsingError$1;
   exports.expression = expression$1;
   exports.featureFilter = createFilter;
-  exports.Color = Color;
+  exports.format = format;
   exports.function = styleFunction;
-  exports.validate = validateStyle$$1;
+  exports.latest = v8;
+  exports.migrate = migrate;
+  exports.v8 = v8;
+  exports.validate = validateStyle;
   exports.visit = visit;
 
   Object.defineProperty(exports, '__esModule', { value: true });
