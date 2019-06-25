@@ -2,7 +2,7 @@ const float PI = 3.141592653589793;
 
 attribute vec4 a_pos_offset;
 attribute vec4 a_data;
-attribute vec3 a_projected_pos;
+attribute vec4 a_projected_pos;
 attribute float a_fade_opacity;
 
 // contents of a_size vary based on the type of property value
@@ -50,7 +50,7 @@ void main() {
     vec2 a_tex = a_data.xy;
     vec2 a_size = a_data.zw;
 
-    highp float segment_angle = -a_projected_pos[2];
+    highp float segment_angle = -a_projected_pos[3];
     float size;
 
     if (!u_is_size_zoom_constant && !u_is_size_feature_constant) {
@@ -100,8 +100,8 @@ void main() {
     highp float angle_cos = cos(segment_angle + symbol_rotation);
     mat2 rotation_matrix = mat2(angle_cos, -1.0 * angle_sin, angle_sin, angle_cos);
 
-    vec4 projected_pos = u_label_plane_matrix * vec4(a_projected_pos.xy, 0.0, 1.0);
-    gl_Position = u_coord_matrix * vec4(projected_pos.xy / projected_pos.w + rotation_matrix * (a_offset / 32.0 * fontScale), 0.0, 1.0);
+    vec4 projected_pos = u_label_plane_matrix * vec4(a_projected_pos.xyz, 1.0);
+    gl_Position = u_coord_matrix * vec4(projected_pos.xy / projected_pos.w + rotation_matrix * (a_offset / 32.0 * fontScale), projected_pos.z, 1.0);
     float gamma_scale = gl_Position.w;
 
     vec2 tex = a_tex / u_texsize;
