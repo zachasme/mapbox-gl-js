@@ -111,11 +111,11 @@ function addVertex(array, anchorX, anchorY, ox, oy, tx, ty, sizeVertex) {
     );
 }
 
-function addDynamicAttributes(dynamicLayoutVertexArray: StructArray, p: Point, angle: number) {
-    dynamicLayoutVertexArray.emplaceBack(p.x, p.y, angle);
-    dynamicLayoutVertexArray.emplaceBack(p.x, p.y, angle);
-    dynamicLayoutVertexArray.emplaceBack(p.x, p.y, angle);
-    dynamicLayoutVertexArray.emplaceBack(p.x, p.y, angle);
+function addDynamicAttributes(dynamicLayoutVertexArray: StructArray, p: Point, z: number, angle: number) {
+    dynamicLayoutVertexArray.emplaceBack(p.x, p.y, z, angle);
+    dynamicLayoutVertexArray.emplaceBack(p.x, p.y, z, angle);
+    dynamicLayoutVertexArray.emplaceBack(p.x, p.y, z, angle);
+    dynamicLayoutVertexArray.emplaceBack(p.x, p.y, z, angle);
 }
 
 export class SymbolBuffers {
@@ -544,7 +544,7 @@ class SymbolBucket implements Bucket {
             addVertex(layoutVertexArray, labelAnchor.x, labelAnchor.y, bl.x, y + bl.y, tex.x, tex.y + tex.h, sizeVertex);
             addVertex(layoutVertexArray, labelAnchor.x, labelAnchor.y, br.x, y + br.y, tex.x + tex.w, tex.y + tex.h, sizeVertex);
 
-            addDynamicAttributes(dynamicLayoutVertexArray, labelAnchor, 0);
+            addDynamicAttributes(dynamicLayoutVertexArray, labelAnchor, feature.zOffset, 0);
 
             indexArray.emplaceBack(index, index + 1, index + 2);
             indexArray.emplaceBack(index + 1, index + 2, index + 3);
