@@ -533,6 +533,7 @@ function addSymbol(bucket: SymbolBucket,
                             iconAlongLine, getDefaultHorizontalShaping(shapedTextOrientations.horizontal),
                             feature);
         const iconRotate = layer.layout.get('icon-rotate').evaluate(feature, {});
+            console.log('anchor', anchor);
         iconCollisionFeature = new CollisionFeature(collisionBoxArray, line, anchor, featureIndex, sourceLayerIndex, bucketIndex, shapedIcon, iconBoxScale, iconPadding, /*align boxes to line*/false, bucket.overscaling, iconRotate);
 
         numIconVertices = iconQuads.length * 4;
