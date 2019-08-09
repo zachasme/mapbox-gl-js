@@ -6,7 +6,11 @@ export default function validateNumber(options) {
     const key = options.key;
     const value = options.value;
     const valueSpec = options.valueSpec;
-    const type = getType(value);
+    let type = getType(value);
+
+    if (type === 'number' && value !== value) {
+        type = 'NaN';
+    }
 
     if (type !== 'number') {
         return [new ValidationError(key, value, `number expected, ${type} found`)];
