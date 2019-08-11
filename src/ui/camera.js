@@ -40,7 +40,8 @@ export type CameraOptions = {
     zoom?: number,
     bearing?: number,
     pitch?: number,
-    around?: LngLatLike
+    around?: LngLatLike,
+    tightFit?: boolean,
 };
 
 /**
@@ -456,7 +457,8 @@ class Camera extends Evented {
             return;
         }
 
-        const zoom = Math.min(tr.scaleZoom(tr.scale * Math.min(scaleX, scaleY)), options.maxZoom);
+        const scale = options.tightFit ? Math.max(scaleX, scaleY) : Math.min(scaleX, scaleY);
+        const zoom = Math.min(tr.scaleZoom(tr.scale * scale), options.maxZoom);
 
         // Calculate center: apply the zoom, the configured offset, as well as offset that exists as a result of padding.
         const offset = Point.convert(options.offset);
@@ -468,7 +470,7 @@ class Camera extends Evented {
         const center =  tr.unproject(p0world.add(p1world).div(2).sub(offsetAtFinalZoom));
 
         return {
-            center,
+            center: options.around || center,
             zoom,
             bearing
         };

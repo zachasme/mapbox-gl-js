@@ -38692,7 +38692,8 @@ var Camera = function (Evented) {
             __chunk_1.warnOnce('Map cannot fit within canvas with the given bounds, padding, and/or offset.');
             return;
         }
-        var zoom = Math.min(tr.scaleZoom(tr.scale * Math.min(scaleX, scaleY)), options.maxZoom);
+        var scale = options.tightFit ? Math.max(scaleX, scaleY) : Math.min(scaleX, scaleY);
+        var zoom = Math.min(tr.scaleZoom(tr.scale * scale), options.maxZoom);
         var offset = __chunk_1.Point.convert(options.offset);
         var paddingOffsetX = (options.padding.left - options.padding.right) / 2;
         var paddingOffsetY = (options.padding.top - options.padding.bottom) / 2;
@@ -38700,7 +38701,7 @@ var Camera = function (Evented) {
         var offsetAtFinalZoom = offsetAtInitialZoom.mult(tr.scale / tr.zoomScale(zoom));
         var center = tr.unproject(p0world.add(p1world).div(2).sub(offsetAtFinalZoom));
         return {
-            center: center,
+            center: options.around || center,
             zoom: zoom,
             bearing: bearing
         };
