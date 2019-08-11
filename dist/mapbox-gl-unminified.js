@@ -29757,7 +29757,12 @@ var CollisionGroups = function CollisionGroups(crossSourceCollisions) {
     this.collisionGroups = {};
 };
 CollisionGroups.prototype.get = function get(sourceID) {
-    if (!this.crossSourceCollisions) {
+    if (this.crossSourceCollisions === true || typeof this.crossSourceCollisions === 'object' && this.crossSourceCollisions[sourceID] !== false) {
+        return {
+            ID: 0,
+            predicate: null
+        };
+    } else {
         if (!this.collisionGroups[sourceID]) {
             var nextGroupID = ++this.maxGroupID;
             this.collisionGroups[sourceID] = {
@@ -29768,11 +29773,6 @@ CollisionGroups.prototype.get = function get(sourceID) {
             };
         }
         return this.collisionGroups[sourceID];
-    } else {
-        return {
-            ID: 0,
-            predicate: null
-        };
     }
 };
 function calculateVariableLayoutOffset(anchor, width, height, radialOffset, textBoxScale) {
