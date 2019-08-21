@@ -800,7 +800,8 @@ export type MapEvent =
     | 'style.load'
 
     /**
-     * Fired when any of the `padding` parameters on the map are changing.
+     * Fired when any of the `padding` parameters on the map are changing
+     * as a result of a transition.
      *
      * @event padding
      * @memberof Map
