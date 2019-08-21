@@ -68,6 +68,7 @@ class AttributionControl {
 
         if (compact === undefined) {
             this._map.on('resize', this._updateCompact);
+            this._map.on('padding', this._updateCompact);
             this._updateCompact();
         }
 
@@ -81,6 +82,7 @@ class AttributionControl {
         this._map.off('sourcedata', this._updateData);
         this._map.off('moveend', this._updateEditLink);
         this._map.off('resize', this._updateCompact);
+        this._map.off('padding', this._updateCompact);
 
         this._map = (undefined: any);
     }
@@ -176,7 +178,7 @@ class AttributionControl {
     }
 
     _updateCompact() {
-        if (this._map.getCanvasContainer().offsetWidth <= 640) {
+        if (this._map.getEffectiveWidth() <= 640) {
             this._container.classList.add('mapboxgl-compact');
         } else {
             this._container.classList.remove('mapboxgl-compact');

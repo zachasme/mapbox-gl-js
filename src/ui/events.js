@@ -797,4 +797,31 @@ export type MapEvent =
      * @instance
      * @private
      */
-    | 'style.load';
+    | 'style.load'
+
+    /**
+     * Fired when any of the `padding` parameters on the map are changing.
+     *
+     * @event padding
+     * @memberof Map
+     * @instance
+     */
+    | 'padding'
+
+    /**
+     * Fired once at the start of a new transion that changes padding.
+     *
+     * @event paddingstart
+     * @memberof Map
+     * @instance
+     */
+    | 'paddingstart'
+
+    /**
+     * Fired once at the end of a new transion that changes padding .
+     *
+     * @event paddingend
+     * @memberof Map
+     * @instance
+     */
+    | 'paddingend';

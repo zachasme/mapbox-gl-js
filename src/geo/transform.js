@@ -45,6 +45,7 @@ class Transform {
     _pitch: number;
     _zoom: number;
     _unmodified: boolean;
+    _paddingDirty: boolean;
     _renderWorldCopies: boolean;
     _minZoom: number;
     _maxZoom: number;
@@ -72,6 +73,7 @@ class Transform {
         this._fov = 0.6435011087932844;
         this._pitch = 0;
         this._unmodified = true;
+        this._paddingDirty = false;
         this._edgeInsets = new EdgeInsets();
         this._posMatrixCache = {};
         this._alignedPosMatrixCache = {};
@@ -89,6 +91,7 @@ class Transform {
         clone._fov = this._fov;
         clone._pitch = this._pitch;
         clone._unmodified = this._unmodified;
+        clone._paddingDirty = this._paddingDirty;
         clone._edgeInsets = this._edgeInsets.clone();
         clone._calcMatrices();
         return clone;
@@ -194,6 +197,7 @@ class Transform {
     set padding(padding: EdgeInsetLike) {
         if (this._edgeInsets.equals(padding)) return;
         this._unmodified = false;
+        this._paddingDirty = true;
         //Update edge-insets inplace
         this._edgeInsets.interpolate(padding, 1);
         this._calcMatrices();
@@ -231,6 +235,7 @@ class Transform {
      */
     interpolatePadding(target: EdgeInsetLike, t: number) {
         this._unmodified = false;
+        this._paddingDirty = true;
         this._edgeInsets.interpolate(target, t);
         this._constrain();
         this._calcMatrices();
@@ -329,6 +334,10 @@ class Transform {
     }
 
     get unmodified(): boolean { return this._unmodified; }
+
+    get isPaddingDirty(): boolean { return this._paddingDirty; }
+
+    markPaddingClean() { this._paddingDirty = false; }
 
     zoomScale(zoom: number) { return Math.pow(2, zoom); }
     scaleZoom(scale: number) { return Math.log(scale) / Math.LN2; }
