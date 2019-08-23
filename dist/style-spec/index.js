@@ -637,6 +637,21 @@
   	}
   };
   var layout_fill = {
+  	"fill-sort-key": {
+  		type: "number",
+  		doc: "Sorts features in ascending order based on this value. Features with a higher sort key will appear above features with a lower sort key.",
+  		"sdk-support": {
+  			js: "1.2.0"
+  		},
+  		expression: {
+  			interpolated: false,
+  			parameters: [
+  				"zoom",
+  				"feature"
+  			]
+  		},
+  		"property-type": "data-driven"
+  	},
   	visibility: {
   		type: "enum",
   		values: {
@@ -661,6 +676,21 @@
   	}
   };
   var layout_circle = {
+  	"circle-sort-key": {
+  		type: "number",
+  		doc: "Sorts features in ascending order based on this value. Features with a higher sort key will appear above features with a lower sort key.",
+  		"sdk-support": {
+  			js: "1.2.0"
+  		},
+  		expression: {
+  			interpolated: false,
+  			parameters: [
+  				"zoom",
+  				"feature"
+  			]
+  		},
+  		"property-type": "data-driven"
+  	},
   	visibility: {
   		type: "enum",
   		values: {
@@ -834,6 +864,21 @@
   		},
   		"property-type": "data-constant"
   	},
+  	"line-sort-key": {
+  		type: "number",
+  		doc: "Sorts features in ascending order based on this value. Features with a higher sort key will appear above features with a lower sort key.",
+  		"sdk-support": {
+  			js: "1.2.0"
+  		},
+  		expression: {
+  			interpolated: false,
+  			parameters: [
+  				"zoom",
+  				"feature"
+  			]
+  		},
+  		"property-type": "data-driven"
+  	},
   	visibility: {
   		type: "enum",
   		values: {
@@ -954,7 +999,14 @@
   		type: "number",
   		doc: "Sorts features in ascending order based on this value. Features with a higher sort key will appear above features with a lower sort key when they overlap. Features with a lower sort key will have priority over other features when doing placement.",
   		"sdk-support": {
-  			js: "0.53.0"
+  			"basic functionality": {
+  				js: "0.53.0",
+  				android: "7.4.0",
+  				ios: "4.11.0",
+  				macos: "0.14.0"
+  			},
+  			"data-driven styling": {
+  			}
   		},
   		expression: {
   			interpolated: false,
@@ -1816,9 +1868,7 @@
   			}
   		},
   		requires: [
-  			{
-  				"!": "text-offset"
-  			}
+  			"text-field"
   		],
   		"property-type": "data-driven",
   		expression: {
@@ -1862,12 +1912,7 @@
   			}
   		},
   		requires: [
-  			{
-  				"!": "text-anchor"
-  			},
-  			{
-  				"!": "text-offset"
-  			},
+  			"text-field",
   			{
   				"symbol-placement": [
   					"point"
@@ -1899,9 +1944,6 @@
   	},
   	"text-anchor": {
   		type: "enum",
-  		requires: [
-  			"text-field"
-  		],
   		values: {
   			center: {
   				doc: "The center of the text is placed closest to the anchor."
@@ -1933,6 +1975,12 @@
   		},
   		"default": "center",
   		doc: "Part of the text placed closest to the anchor.",
+  		requires: [
+  			"text-field",
+  			{
+  				"!": "text-variable-anchor"
+  			}
+  		],
   		"sdk-support": {
   			"basic functionality": {
   				js: "0.10.0",
@@ -2136,6 +2184,9 @@
   			"text-field",
   			{
   				"!": "text-radial-offset"
+  			},
+  			{
+  				"!": "text-variable-anchor"
   			}
   		],
   		"sdk-support": {
@@ -5941,9 +5992,9 @@
   (function(root) {
 
   	/** Detect free variables */
-  	var freeExports = exports &&
+  	var freeExports =  exports &&
   		!exports.nodeType && exports;
-  	var freeModule = module &&
+  	var freeModule =  module &&
   		!module.nodeType && module;
   	var freeGlobal = typeof commonjsGlobal == 'object' && commonjsGlobal;
   	if (
@@ -12981,17 +13032,6 @@
               style: options.style,
               styleSpec: styleSpec
           });
-          if ('url' in value) {
-              for (var prop in value) {
-                  if ([
-                          'type',
-                          'url',
-                          'tileSize'
-                      ].indexOf(prop) < 0) {
-                      errors.push(new ValidationError(key + '.' + prop, value[prop], 'a source with a "url" property may not include a "' + prop + '" property'));
-                  }
-              }
-          }
           return errors;
       case 'geojson':
           errors = validateObject({
@@ -13002,8 +13042,8 @@
               styleSpec: styleSpec
           });
           if (value.cluster) {
-              for (var prop$1 in value.clusterProperties) {
-                  var ref = value.clusterProperties[prop$1];
+              for (var prop in value.clusterProperties) {
+                  var ref = value.clusterProperties[prop];
                   var operator = ref[0];
                   var mapExpr = ref[1];
                   var reduceExpr = typeof operator === 'string' ? [
@@ -13011,16 +13051,16 @@
                       ['accumulated'],
                       [
                           'get',
-                          prop$1
+                          prop
                       ]
                   ] : operator;
                   errors.push.apply(errors, validateExpression({
-                      key: key + '.' + prop$1 + '.map',
+                      key: key + '.' + prop + '.map',
                       value: mapExpr,
                       expressionContext: 'cluster-map'
                   }));
                   errors.push.apply(errors, validateExpression({
-                      key: key + '.' + prop$1 + '.reduce',
+                      key: key + '.' + prop + '.reduce',
                       value: reduceExpr,
                       expressionContext: 'cluster-reduce'
                   }));
@@ -13934,6 +13974,7 @@
   exports.ParsingError = ParsingError$1;
   exports.ValidationError = ValidationError;
   exports.composite = composite;
+  exports.convertFilter = convertFilter$1;
   exports.diff = diffStyles;
   exports.expression = expression$1;
   exports.featureFilter = createFilter;
