@@ -20,6 +20,8 @@ uniform mat4 u_label_plane_matrix;
 uniform mat4 u_coord_matrix;
 
 uniform bool u_is_text;
+uniform bool u_crisp;
+uniform vec2 u_canvas_size;
 uniform bool u_pitch_with_map;
 
 uniform vec2 u_texsize;
@@ -28,6 +30,13 @@ varying vec2 v_tex;
 varying float v_fade_opacity;
 
 #pragma mapbox: define lowp float opacity
+
+vec2 absfract(vec2 value) {
+    vec2 result = fract(value);
+    if (result.x > 0.5) result.x -= 1.0;
+    if (result.y > 0.5) result.y -= 1.0;
+    return result;
+}
 
 void main() {
     #pragma mapbox: initialize lowp float opacity
@@ -84,7 +93,15 @@ void main() {
     vec4 projected_pos = u_label_plane_matrix * vec4(a_projected_pos.xy, 0.0, 1.0);
     gl_Position = u_coord_matrix * vec4(projected_pos.xy / projected_pos.w + rotation_matrix * (a_offset / 32.0 * fontScale), 0.0, 1.0);
 
-    v_tex = a_tex / u_texsize;
+    v_tex = a_tex;
+    if (u_crisp && size == 1.0 && (segment_angle + symbol_rotation == 0.0)) {
+        // move texture loopup to snap to the pixel grid
+        vec4 icon_pos = u_coord_matrix * vec4(projected_pos.xy / projected_pos.w, 0.0, 1.0);
+        v_tex += absfract((icon_pos.xy + 1.0) * u_canvas_size * vec2(1.0, -1.0) / 2.0);
+        v_tex += fract((a_offset / 32.0 * fontScale));
+    }
+    v_tex /= u_texsize;
+
     vec2 fade_opacity = unpack_opacity(a_fade_opacity);
     float fade_change = fade_opacity[1] > 0.5 ? u_fade_change : -u_fade_change;
     v_fade_opacity = max(0.0, min(1.0, fade_opacity[0] + fade_change));

@@ -1,5 +1,6 @@
 // @flow
 
+import browser from '../util/browser';
 import Point from '@mapbox/point-geometry';
 import drawCollisionDebug from './draw_collision_debug';
 
@@ -212,10 +213,12 @@ function drawLayerSymbols(painter, sourceCache, layer, coords, isText, translate
 
         let texSize: [number, number];
         let atlasTexture;
-        let atlasInterpolation;
+        let isCrisp = !painter.options.rotating && !painter.options.zooming;
+        const canvasSize = [ painter.width / browser.devicePixelRatio, painter.height / browser.devicePixelRatio ];
+
+        let atlasInterpolation = gl.LINEAR;
         if (isText) {
             atlasTexture = tile.glyphAtlasTexture;
-            atlasInterpolation = gl.LINEAR;
             texSize = tile.glyphAtlasTexture.size;
 
         } else {
@@ -223,9 +226,6 @@ function drawLayerSymbols(painter, sourceCache, layer, coords, isText, translate
             const iconTransformed = pitchWithMap || tr.pitch !== 0;
 
             atlasTexture = tile.imageAtlasTexture;
-            atlasInterpolation = isSDF || painter.options.rotating || painter.options.zooming || iconScaled || iconTransformed ?
-                gl.LINEAR :
-                gl.NEAREST;
             texSize = tile.imageAtlasTexture.size;
         }
 
@@ -253,12 +253,12 @@ function drawLayerSymbols(painter, sourceCache, layer, coords, isText, translate
         if (isSDF) {
             uniformValues = symbolSDFUniformValues(sizeData.kind,
                 size, rotateInShader, pitchWithMap, painter, matrix,
-                uLabelPlaneMatrix, uglCoordMatrix, isText, texSize, true);
+                uLabelPlaneMatrix, uglCoordMatrix, isText, canvasSize, texSize, true);
 
         } else {
             uniformValues = symbolIconUniformValues(sizeData.kind,
                 size, rotateInShader, pitchWithMap, painter, matrix,
-                uLabelPlaneMatrix, uglCoordMatrix, isText, texSize);
+                uLabelPlaneMatrix, uglCoordMatrix, isText, isCrisp, canvasSize, texSize);
         }
 
         const state = {
