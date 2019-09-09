@@ -22,6 +22,7 @@ export type SymbolIconUniformsType = {|
     'u_pitch': Uniform1f,
     'u_rotate_symbol': Uniform1i,
     'u_aspect_ratio': Uniform1f,
+    'u_device_pixel_ratio': Uniform1f,
     'u_fade_change': Uniform1f,
     'u_matrix': UniformMatrix4f,
     'u_label_plane_matrix': UniformMatrix4f,
@@ -43,6 +44,7 @@ export type SymbolSDFUniformsType = {|
     'u_pitch': Uniform1f,
     'u_rotate_symbol': Uniform1i,
     'u_aspect_ratio': Uniform1f,
+    'u_device_pixel_ratio': Uniform1f,
     'u_fade_change': Uniform1f,
     'u_matrix': UniformMatrix4f,
     'u_label_plane_matrix': UniformMatrix4f,
@@ -52,7 +54,6 @@ export type SymbolSDFUniformsType = {|
     'u_texsize': Uniform2f,
     'u_texture': Uniform1i,
     'u_gamma_scale': Uniform1f,
-    'u_device_pixel_ratio': Uniform1f,
     'u_is_halo': Uniform1f
 |};
 
@@ -65,6 +66,7 @@ const symbolIconUniforms = (context: Context, locations: UniformLocations): Symb
     'u_pitch': new Uniform1f(context, locations.u_pitch),
     'u_rotate_symbol': new Uniform1i(context, locations.u_rotate_symbol),
     'u_aspect_ratio': new Uniform1f(context, locations.u_aspect_ratio),
+    'u_device_pixel_ratio': new Uniform1f(context, locations.u_device_pixel_ratio),
     'u_fade_change': new Uniform1f(context, locations.u_fade_change),
     'u_matrix': new UniformMatrix4f(context, locations.u_matrix),
     'u_label_plane_matrix': new UniformMatrix4f(context, locations.u_label_plane_matrix),
@@ -86,6 +88,7 @@ const symbolSDFUniforms = (context: Context, locations: UniformLocations): Symbo
     'u_pitch': new Uniform1f(context, locations.u_pitch),
     'u_rotate_symbol': new Uniform1i(context, locations.u_rotate_symbol),
     'u_aspect_ratio': new Uniform1f(context, locations.u_aspect_ratio),
+    'u_device_pixel_ratio': new Uniform1f(context, locations.u_device_pixel_ratio),
     'u_fade_change': new Uniform1f(context, locations.u_fade_change),
     'u_matrix': new UniformMatrix4f(context, locations.u_matrix),
     'u_label_plane_matrix': new UniformMatrix4f(context, locations.u_label_plane_matrix),
@@ -95,7 +98,6 @@ const symbolSDFUniforms = (context: Context, locations: UniformLocations): Symbo
     'u_texsize': new Uniform2f(context, locations.u_texsize),
     'u_texture': new Uniform1i(context, locations.u_texture),
     'u_gamma_scale': new Uniform1f(context, locations.u_gamma_scale),
-    'u_device_pixel_ratio': new Uniform1f(context, locations.u_device_pixel_ratio),
     'u_is_halo': new Uniform1f(context, locations.u_is_halo)
 });
 
@@ -130,6 +132,7 @@ const symbolIconUniformValues = (
         'u_coord_matrix': glCoordMatrix,
         'u_is_text': +isText,
         'u_crisp': +isCrisp,
+        'u_device_pixel_ratio': browser.devicePixelRatio,
         'u_canvas_size': canvasSize,
         'u_pitch_with_map': +pitchWithMap,
         'u_texsize': texSize,
@@ -157,7 +160,6 @@ const symbolSDFUniformValues = (
         rotateInShader, pitchWithMap, painter, matrix, labelPlaneMatrix,
         glCoordMatrix, isText, false, canvasSize, texSize), {
         'u_gamma_scale': (pitchWithMap ? Math.cos(transform._pitch) * transform.cameraToCenterDistance : 1),
-        'u_device_pixel_ratio': browser.devicePixelRatio,
         'u_is_halo': +isHalo
     });
 };

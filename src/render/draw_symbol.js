@@ -1,6 +1,5 @@
 // @flow
 
-import browser from '../util/browser';
 import Point from '@mapbox/point-geometry';
 import drawCollisionDebug from './draw_collision_debug';
 
@@ -213,18 +212,14 @@ function drawLayerSymbols(painter, sourceCache, layer, coords, isText, translate
 
         let texSize: [number, number];
         let atlasTexture;
-        let isCrisp = !painter.options.rotating && !painter.options.zooming;
-        const canvasSize = [ painter.width / browser.devicePixelRatio, painter.height / browser.devicePixelRatio ];
+        const isCrisp = !painter.options.rotating && !painter.options.zooming;
+        const canvasSize = [ painter.width, painter.height ];
 
-        let atlasInterpolation = gl.LINEAR;
+        const atlasInterpolation = gl.LINEAR;
         if (isText) {
             atlasTexture = tile.glyphAtlasTexture;
             texSize = tile.glyphAtlasTexture.size;
-
         } else {
-            const iconScaled = layer.layout.get('icon-size').constantOr(0) !== 1 || bucket.iconsNeedLinear;
-            const iconTransformed = pitchWithMap || tr.pitch !== 0;
-
             atlasTexture = tile.imageAtlasTexture;
             texSize = tile.imageAtlasTexture.size;
         }
