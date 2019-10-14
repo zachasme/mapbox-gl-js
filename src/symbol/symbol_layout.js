@@ -289,6 +289,7 @@ export function performSymbolLayout(bucket: SymbolBucket,
         }
 
         let shapedIcon;
+        let isSDFIcon = false;
         if (feature.icon && feature.icon.name) {
             const image = imageMap[feature.icon.name];
             if (image) {
@@ -296,6 +297,7 @@ export function performSymbolLayout(bucket: SymbolBucket,
                     imagePositions[feature.icon.name],
                     layout.get('icon-offset').evaluate(feature, {}),
                     layout.get('icon-anchor').evaluate(feature, {}));
+                isSDFIcon = image.sdf
                 if (bucket.sdfIcons === undefined) {
                     bucket.sdfIcons = image.sdf;
                 } else if (bucket.sdfIcons !== image.sdf) {
@@ -310,7 +312,7 @@ export function performSymbolLayout(bucket: SymbolBucket,
         }
 
         if (Object.keys(shapedTextOrientations.horizontal).length || shapedIcon) {
-            addFeature(bucket, feature, shapedTextOrientations, shapedIcon, glyphPositionMap, sizes, textOffset);
+            addFeature(bucket, feature, shapedTextOrientations, shapedIcon, glyphPositionMap, sizes, textOffset, isSDFIcon);
         }
     }
 
@@ -347,7 +349,8 @@ function addFeature(bucket: SymbolBucket,
                     shapedIcon: PositionedIcon | void,
                     glyphPositionMap: {[string]: {[number]: GlyphPosition}},
                     sizes: Sizes,
-                    textOffset: [number, number]) {
+                    textOffset: [number, number],
+                    isSDFIcon: boolean) {
     const layoutTextSize = sizes.layoutTextSize.evaluate(feature, {});
     const layoutIconSize = sizes.layoutIconSize.evaluate(feature, {});
 
@@ -403,7 +406,7 @@ function addFeature(bucket: SymbolBucket,
             bucket.collisionBoxArray, feature.index, feature.sourceLayerIndex, bucket.index,
             textBoxScale, textPadding, textAlongLine, textOffset,
             iconBoxScale, iconPadding, iconAlongLine, iconOffset,
-            feature, glyphPositionMap, sizes);
+            feature, glyphPositionMap, sizes, isSDFIcon);
     };
 
     if (symbolPlacement === 'line') {
@@ -559,7 +562,8 @@ function addSymbol(bucket: SymbolBucket,
                    iconOffset: [number, number],
                    feature: SymbolFeature,
                    glyphPositionMap: {[string]: {[number]: GlyphPosition}},
-                   sizes: Sizes) {
+                   sizes: Sizes,
+                   isSDFIcon: boolean) {
     const lineArray = bucket.addToLineVertexArray(anchor, line);
 
     let textCollisionFeature, iconCollisionFeature, verticalTextCollisionFeature, verticalIconCollisionFeature;
@@ -599,8 +603,8 @@ function addSymbol(bucket: SymbolBucket,
     // For more info check `updateVariableAnchors` in `draw_symbol.js` .
     if (shapedIcon) {
         const iconRotate = layer.layout.get('icon-rotate').evaluate(feature, {});
-        const iconQuads = getIconQuads(shapedIcon, iconRotate);
-        const verticalIconQuads = verticallyShapedIcon ? getIconQuads(verticallyShapedIcon, iconRotate) : undefined;
+        const iconQuads = getIconQuads(shapedIcon, iconRotate, isSDFIcon);
+        const verticalIconQuads = verticallyShapedIcon ? getIconQuads(verticallyShapedIcon, iconRotate, isSDFIcon) : undefined;
         iconCollisionFeature = new CollisionFeature(collisionBoxArray, line, anchor, featureIndex, sourceLayerIndex, bucketIndex, shapedIcon, iconBoxScale, iconPadding, /*align boxes to line*/false, bucket.overscaling, iconRotate);
 
         numIconVertices = iconQuads.length * 4;

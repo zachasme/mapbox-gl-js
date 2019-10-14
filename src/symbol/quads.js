@@ -37,7 +37,8 @@ export type SymbolQuad = {
     },
     writingMode: any | void,
     glyphOffset: [number, number],
-    sectionIndex: number
+    sectionIndex: number,
+    isSDF: boolean
 };
 
 /**
@@ -46,7 +47,8 @@ export type SymbolQuad = {
  */
 export function getIconQuads(
                       shapedIcon: PositionedIcon,
-                      iconRotate: number): Array<SymbolQuad> {
+                      iconRotate: number,
+                      isSDFIcon: boolean): Array<SymbolQuad> {
     const image = shapedIcon.image;
 
     // If you have a 10px icon that isn't perfectly aligned to the pixel grid it will cover 11 actual
@@ -86,7 +88,7 @@ export function getIconQuads(
     }
 
     // Icon quad is padded, so texture coordinates also need to be padded.
-    return [{tl, tr, bl, br, tex: image.paddedRect, writingMode: undefined, glyphOffset: [0, 0], sectionIndex: 0}];
+    return [{tl, tr, bl, br, tex: image.paddedRect, writingMode: undefined, glyphOffset: [0, 0], sectionIndex: 0, isSDF: isSDFIcon}];
 }
 
 /**
@@ -185,7 +187,7 @@ export function getGlyphQuads(anchor: Anchor,
             br._matMult(matrix);
         }
 
-        quads.push({tl, tr, bl, br, tex: rect, writingMode: shaping.writingMode, glyphOffset, sectionIndex: positionedGlyph.sectionIndex});
+        quads.push({tl, tr, bl, br, tex: rect, writingMode: shaping.writingMode, glyphOffset, sectionIndex: positionedGlyph.sectionIndex, isSDF: true});
     }
 
     return quads;
