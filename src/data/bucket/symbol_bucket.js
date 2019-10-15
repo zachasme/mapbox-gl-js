@@ -381,7 +381,9 @@ class SymbolBucket implements Bucket {
         const textField = layout.get('text-field');
         const iconImage = layout.get('icon-image');
         const hasText =
-            (textField.value.kind !== 'constant' || textField.value.value.toString().length > 0) &&
+            (textField.value.kind !== 'constant' ||
+                (textField.value.value instanceof Formatted && !textField.value.value.isEmpty()) ||
+                textField.value.value.toString().length > 0) &&
             (textFont.value.kind !== 'constant' || textFont.value.value.length > 0);
         // we should always resolve the icon-image value if the property was defined in the style
         // this allows us to fire the styleimagemissing event if image evaluation returns null

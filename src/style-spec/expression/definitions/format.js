@@ -1,8 +1,8 @@
 // @flow
 
-import {NumberType, ValueType, FormattedType, array, StringType, ColorType} from '../types';
+import {NumberType, ValueType, FormattedType, array, StringType, ColorType, ResolvedImageType} from '../types';
 import Formatted, {FormattedSection} from '../types/formatted';
-import {toString} from '../values';
+import {toString, typeOf} from '../values';
 
 import type {Expression} from '../expression';
 import type EvaluationContext from '../evaluation_context';
@@ -72,8 +72,8 @@ export default class FormatExpression implements Expression {
                 if (!content) return null;
 
                 const kind = content.type.kind;
-                if (kind !== 'string' && kind !== 'value' && kind !== 'null')
-                    return context.error(`Formatted text type must be 'string', 'value', or 'null'.`);
+                if (kind !== 'string' && kind !== 'value' && kind !== 'null' && kind !== 'resolvedImage')
+                    return context.error(`Formatted text type must be 'string', 'value', 'image' or 'null'.`);
 
                 nextTokenMayBeObject = true;
                 sections.push({content, scale: null, font: null, textColor: null});
@@ -84,16 +84,22 @@ export default class FormatExpression implements Expression {
     }
 
     evaluate(ctx: EvaluationContext) {
-        return new Formatted(
-            this.sections.map(section =>
-                new FormattedSection(
-                    toString(section.content.evaluate(ctx)),
+        const evaluateSection = section => {
+            const evaluatedContent = section.content.evaluate(ctx);
+            if (typeOf(evaluatedContent) === ResolvedImageType) {
+                return new FormattedSection('', evaluatedContent, null, null, null);
+            }
+
+            return new FormattedSection(
+                    toString(evaluatedContent),
+                    null,
                     section.scale ? section.scale.evaluate(ctx) : null,
                     section.font ? section.font.evaluate(ctx).join(',') : null,
                     section.textColor ? section.textColor.evaluate(ctx) : null
-                )
-            )
-        );
+            );
+        };
+
+        return new Formatted(this.sections.map(evaluateSection));
     }
 
     eachChild(fn: (Expression) => void) {
