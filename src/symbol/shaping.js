@@ -12,6 +12,7 @@ import ONE_EM from './one_em';
 import {warnOnce} from '../util/util';
 
 import type {StyleGlyph} from '../style/style_glyph';
+import type {StyleImage} from '../style/style_image';
 import type {ImagePosition} from '../render/image_atlas';
 import Formatted, {FormattedSection} from '../style-spec/expression/types/formatted';
 
@@ -226,7 +227,9 @@ function shapeText(text: Formatted,
                    translate: [number, number],
                    writingMode: 1 | 2,
                    allowVerticalPlacement: boolean,
-                   symbolPlacement: string): Shaping | false {
+                   symbolPlacement: string,
+                   imageMap: {[string]: StyleImage},
+                   imagePositions: {[string]: ImagePosition}): Shaping | false {
     const logicalInput = TaggedString.fromFeature(text, defaultFontStack);
 
     if (writingMode === WritingMode.vertical) {
@@ -283,7 +286,7 @@ function shapeText(text: Formatted,
         yOffset: -17 // the y offset *should* be part of the font metadata
     };
 
-    shapeLines(shaping, glyphs, lines, lineHeight, textAnchor, textJustify, writingMode, spacing, allowVerticalPlacement);
+    shapeLines(shaping, glyphs, lines, lineHeight, textAnchor, textJustify, writingMode, spacing, allowVerticalPlacement, imageMap, imagePositions);
     if (!positionedGlyphs.length) return false;
 
     return shaping;
@@ -522,7 +525,9 @@ function shapeLines(shaping: Shaping,
                     textJustify: TextJustify,
                     writingMode: 1 | 2,
                     spacing: number,
-                    allowVerticalPlacement: boolean) {
+                    allowVerticalPlacement: boolean,
+                    imageMap: {[string]: StyleImage},
+                    imagePositions: {[string]: ImagePosition}) {
 
     let x = 0;
     let y = shaping.yOffset;
