@@ -472,10 +472,15 @@ class SymbolBucket implements Bucket {
                 const textAlongLine = layout.get('text-rotation-alignment') === 'map' && layout.get('symbol-placement') !== 'point';
                 this.allowVerticalPlacement = this.writingModes && this.writingModes.indexOf(WritingMode.vertical) >= 0;
                 for (const section of text.sections) {
-                    const doesAllowVerticalWritingMode = allowsVerticalWritingMode(text.toString());
-                    const sectionFont = section.fontStack || fontStack;
-                    const sectionStack = stacks[sectionFont] = stacks[sectionFont] || {};
-                    this.calculateGlyphDependencies(section.text, sectionStack, textAlongLine, this.allowVerticalPlacement, doesAllowVerticalWritingMode);
+                    if (!section.image) {
+                        const doesAllowVerticalWritingMode = allowsVerticalWritingMode(text.toString());
+                        const sectionFont = section.fontStack || fontStack;
+                        const sectionStack = stacks[sectionFont] = stacks[sectionFont] || {};
+                        this.calculateGlyphDependencies(section.text, sectionStack, textAlongLine, this.allowVerticalPlacement, doesAllowVerticalWritingMode);
+                    } else {
+                        // Add section image to the list of dependencies.
+                        icons[section.image.name] = true;
+                    }
                 }
             }
         }
