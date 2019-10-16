@@ -9,10 +9,11 @@ import {
 import verticalizePunctuation from '../util/verticalize_punctuation';
 import {plugin as rtlTextPlugin} from '../source/rtl_text_plugin';
 import ONE_EM from './one_em';
+import {warnOnce} from '../util/util';
 
 import type {StyleGlyph} from '../style/style_glyph';
 import type {ImagePosition} from '../render/image_atlas';
-import Formatted from '../style-spec/expression/types/formatted';
+import Formatted, {FormattedSection} from '../style-spec/expression/types/formatted';
 
 const WritingMode = {
     horizontal: 1,
@@ -49,28 +50,60 @@ export type Shaping = {
 export type SymbolAnchor = 'center' | 'left' | 'right' | 'top' | 'bottom' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 export type TextJustify = 'left' | 'center' | 'right';
 
+// Max number of images in label is 6401 U+E000–U+F8FF that covers
+// Basic Multilingual Plane Unicode Private Use Area (PUA).
+const PUAbegin = 0xE000;
+const PUAend = 0xF8FF;
+
+class SectionOptions {
+    // Text options
+    scale: number;
+    fontStack: string;
+    // Image options
+    imageName: string;
+
+    constructor() {
+        this.scale = 1.0;
+        this.fontStack = "";
+        this.imageName = "";
+    }
+
+    static forText(scale: number | null, fontStack: string) {
+        const textOptions = new SectionOptions();
+        textOptions.scale = scale || 1;
+        textOptions.fontStack = fontStack;
+        return textOptions;
+    }
+
+    static forImage(imageName: string) {
+        const imageOptions = new SectionOptions();
+        imageOptions.imageName = imageName;
+        return imageOptions;
+    }
+
+};
+
 class TaggedString {
     text: string;
     sectionIndex: Array<number> // maps each character in 'text' to its corresponding entry in 'sections'
-    sections: Array<{ scale: number, fontStack: string }>
+    sections: Array<SectionOptions>
+    imageSectionID: number | null;
 
     constructor() {
         this.text = "";
         this.sectionIndex = [];
         this.sections = [];
+        this.imageSectionID = null;
     }
 
     static fromFeature(text: Formatted, defaultFontStack: string) {
         const result = new TaggedString();
         for (let i = 0; i < text.sections.length; i++) {
             const section = text.sections[i];
-            result.sections.push({
-                scale: section.scale || 1,
-                fontStack: section.fontStack || defaultFontStack
-            });
-            result.text += section.text;
-            for (let j = 0; j < section.text.length; j++) {
-                result.sectionIndex.push(i);
+            if (!section.image) {
+                result.addTextSection(section, defaultFontStack);
+            } else {
+                result.addImageSection(section);
             }
         }
         return result;
@@ -127,6 +160,43 @@ class TaggedString {
 
     getMaxScale() {
         return this.sectionIndex.reduce((max, index) => Math.max(max, this.sections[index].scale), 0);
+    }
+
+    addTextSection(section: FormattedSection, defaultFontStack: string) {
+        this.text += section.text;
+        this.sections.push(SectionOptions.forText(section.scale, section.fontStack || defaultFontStack));
+        const index = this.sections.length - 1;
+        for (let i = 0; i < section.text.length; ++i) {
+            this.sectionIndex.push(index);
+        }
+    }
+
+    addImageSection(section: FormattedSection) {
+        const imageName = section.image ? section.image.name : '';
+        if (imageName.length === 0) {
+            warnOnce(`Can't add FormattedSection with an empty image.`);
+            return;
+        }
+
+        const nextImageSectionCharCode = this.getNextImageSectionCharCode();
+        if (!nextImageSectionCharCode) {
+            warnOnce(`Reached maximum number of images ${PUAend-PUAbegin + 2}`);
+            return;
+        }
+
+        this.text += String.fromCharCode(nextImageSectionCharCode);
+        this.sections.push(SectionOptions.forImage(imageName));
+        this.sectionIndex.push(this.sections.length - 1);
+    }
+
+    getNextImageSectionCharCode(): number | null {
+        if (!this.imageSectionID) {
+            this.imageSectionID = PUAbegin;
+            return this.imageSectionID;
+        }
+
+        if (this.imageSectionID >= PUAend) return null;
+        return ++this.imageSectionID;
     }
 }
 
