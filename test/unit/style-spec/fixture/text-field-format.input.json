@@ -24,17 +24,6 @@
   "glyphs": "local://glyphs/{fontstack}/{range}.pbf",
   "layers": [
     {
-      "id": "no options - invalid",
-      "type": "symbol",
-      "source": "point",
-      "layout": {
-        "text-field": [
-          "format",
-          "some text"
-        ]
-      }
-    },
-    {
       "id": "empty options - valid",
       "type": "symbol",
       "source": "point",
