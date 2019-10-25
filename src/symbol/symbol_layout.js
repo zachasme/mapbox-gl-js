@@ -24,7 +24,6 @@ import type {Shaping, PositionedIcon, TextJustify} from './shaping';
 import type {CollisionBoxArray} from '../data/array_types';
 import type {SymbolFeature} from '../data/bucket/symbol_bucket';
 import type {StyleImage} from '../style/style_image';
-import type {StyleGlyph} from '../style/style_glyph';
 import type SymbolStyleLayer from '../style/style_layer/symbol_style_layer';
 import type {ImagePosition} from '../render/image_atlas';
 import type {GlyphPosition} from '../render/glyph_atlas';
@@ -294,7 +293,7 @@ export function performSymbolLayout(bucket: SymbolBucket,
                     imagePositions[feature.icon.name],
                     layout.get('icon-offset').evaluate(feature, {}),
                     layout.get('icon-anchor').evaluate(feature, {}));
-                isSDFIcon = image.sdf
+                isSDFIcon = image.sdf;
                 if (bucket.sdfIcons === undefined) {
                     bucket.sdfIcons = image.sdf;
                 } else if (bucket.sdfIcons !== image.sdf) {
@@ -308,7 +307,7 @@ export function performSymbolLayout(bucket: SymbolBucket,
             }
         }
 
-        const shapedText = getDefaultHorizontalShaping(shapedTextOrientations.horizontal) || shapedTextOrientations.vertical;
+        const shapedText = getDefaultHorizontalShaping(shapedTextOrientations.horizontal) || shapedTextOrientations.vertical;
         bucket.iconsInText = shapedText ? shapedText.iconsInText : false;
         if (shapedText || shapedIcon) {
             addFeature(bucket, feature, shapedTextOrientations, shapedIcon, imageMap, sizes, textOffset, isSDFIcon);

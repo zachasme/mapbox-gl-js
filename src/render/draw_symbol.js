@@ -365,7 +365,9 @@ function drawLayerSymbols(painter, sourceCache, layer, coords, isText, translate
         state.atlasTexture.bind(state.atlasInterpolation, gl.CLAMP_TO_EDGE);
         if (state.atlasTextureIcon) {
             context.activeTexture.set(gl.TEXTURE1);
-            state.atlasTextureIcon && state.atlasTextureIcon.bind(state.atlasInterpolationIcon, gl.CLAMP_TO_EDGE);
+            if (state.atlasTextureIcon) {
+                state.atlasTextureIcon.bind(state.atlasInterpolationIcon, gl.CLAMP_TO_EDGE);
+            }
         }
 
         if (state.isSDF) {

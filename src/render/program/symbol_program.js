@@ -211,13 +211,11 @@ const symbolUniformValues = (
     texSizeSDF: [number, number],
     texSizeIcon: [number, number]
 ): UniformValues<SymbolIconUniformsType> => {
-    const transform = painter.transform;
-
-    let uniforms = extend(symbolSDFUniformValues(functionType, size,
+    const uniforms = extend(symbolSDFUniformValues(functionType, size,
         rotateInShader, pitchWithMap, painter, matrix, labelPlaneMatrix,
         glCoordMatrix, true, texSizeSDF, true), {
-            'u_texsize_icon': texSizeIcon,
-            'u_texture_icon': 1
+        'u_texsize_icon': texSizeIcon,
+        'u_texture_icon': 1
     });
     delete uniforms['u_is_text'];
     return uniforms;
