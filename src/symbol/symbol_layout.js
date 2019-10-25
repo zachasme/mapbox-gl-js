@@ -148,7 +148,6 @@ export function evaluateVariableOffset(anchor: TextAnchor, offset: [number, numb
 }
 
 export function performSymbolLayout(bucket: SymbolBucket,
-                             glyphMap: {[string]: {[number]: ?StyleGlyph}},
                              glyphPositions: {[string]: {[number]: GlyphPosition}},
                              imageMap: {[string]: StyleImage},
                              imagePositions: {[string]: ImagePosition},
@@ -191,7 +190,6 @@ export function performSymbolLayout(bucket: SymbolBucket,
 
     for (const feature of bucket.features) {
         const fontstack = layout.get('text-font').evaluate(feature, {}).join(',');
-        const glyphPositionMap = glyphPositions;
 
         const shapedTextOrientations = {
             horizontal: {},
@@ -234,8 +232,8 @@ export function performSymbolLayout(bucket: SymbolBucket,
                     // Vertical POI label placement is meant to be used for scripts that support vertical
                     // writing mode, thus, default left justification is used. If Latin
                     // scripts would need to be supported, this should take into account other justifications.
-                    shapedTextOrientations.vertical = shapeText(text, glyphMap, fontstack, maxWidth, lineHeight, textAnchor,
-                                                                'left', spacingIfAllowed, textOffset, WritingMode.vertical, true, symbolPlacement, imageMap, imagePositions);
+                    shapedTextOrientations.vertical = shapeText(text, glyphPositions, imagePositions, fontstack, maxWidth, lineHeight, textAnchor,
+                                                                'left', spacingIfAllowed, textOffset, WritingMode.vertical, true, symbolPlacement);
                 }
             };
 
@@ -256,8 +254,8 @@ export function performSymbolLayout(bucket: SymbolBucket,
                     } else {
                         // If using text-variable-anchor for the layer, we use a center anchor for all shapings and apply
                         // the offsets for the anchor in the placement step.
-                        const shaping = shapeText(text, glyphMap, fontstack, maxWidth, lineHeight, 'center',
-                                                  justification, spacingIfAllowed, textOffset, WritingMode.horizontal, false, symbolPlacement, imageMap, imagePositions);
+                        const shaping = shapeText(text, glyphPositions, imagePositions, fontstack, maxWidth, lineHeight, 'center',
+                                                  justification, spacingIfAllowed, textOffset, WritingMode.horizontal, false, symbolPlacement);
                         if (shaping) {
                             shapedTextOrientations.horizontal[justification] = shaping;
                             singleLine = shaping.lineCount === 1;
@@ -272,8 +270,8 @@ export function performSymbolLayout(bucket: SymbolBucket,
                 }
 
                 // Horizontal point or line label.
-                const shaping = shapeText(text, glyphMap, fontstack, maxWidth, lineHeight, textAnchor, textJustify, spacingIfAllowed,
-                                          textOffset, WritingMode.horizontal, false, symbolPlacement, imageMap, imagePositions);
+                const shaping = shapeText(text, glyphPositions, imagePositions, fontstack, maxWidth, lineHeight, textAnchor, textJustify, spacingIfAllowed,
+                                          textOffset, WritingMode.horizontal, false, symbolPlacement);
                 if (shaping) shapedTextOrientations.horizontal[textJustify] = shaping;
 
                 // Vertical point label (if allowVerticalPlacement is enabled).
@@ -281,11 +279,10 @@ export function performSymbolLayout(bucket: SymbolBucket,
 
                 // Verticalized line label.
                 if (allowsVerticalWritingMode(unformattedText) && textAlongLine && keepUpright) {
-                    shapedTextOrientations.vertical = shapeText(text, glyphMap, fontstack, maxWidth, lineHeight, textAnchor, textJustify,
-                                                                spacingIfAllowed, textOffset, WritingMode.vertical, false, symbolPlacement, imageMap, imagePositions);
+                    shapedTextOrientations.vertical = shapeText(text, glyphPositions, imagePositions, fontstack, maxWidth, lineHeight, textAnchor, textJustify,
+                                                                spacingIfAllowed, textOffset, WritingMode.vertical, false, symbolPlacement);
                 }
             }
-
         }
 
         let shapedIcon;
@@ -311,8 +308,10 @@ export function performSymbolLayout(bucket: SymbolBucket,
             }
         }
 
-        if (Object.keys(shapedTextOrientations.horizontal).length || shapedIcon) {
-            addFeature(bucket, feature, shapedTextOrientations, shapedIcon, glyphPositionMap, sizes, textOffset, isSDFIcon);
+        const shapedText = getDefaultHorizontalShaping(shapedTextOrientations.horizontal) || shapedTextOrientations.vertical;
+        bucket.iconsInText = shapedText ? shapedText.iconsInText : false;
+        if (shapedText || shapedIcon) {
+            addFeature(bucket, feature, shapedTextOrientations, shapedIcon, imageMap, sizes, textOffset, isSDFIcon);
         }
     }
 
@@ -347,7 +346,7 @@ function addFeature(bucket: SymbolBucket,
                     feature: SymbolFeature,
                     shapedTextOrientations: any,
                     shapedIcon: PositionedIcon | void,
-                    glyphPositionMap: {[string]: {[number]: GlyphPosition}},
+                    imageMap: {[string]: StyleImage},
                     sizes: Sizes,
                     textOffset: [number, number],
                     isSDFIcon: boolean) {
@@ -402,11 +401,11 @@ function addFeature(bucket: SymbolBucket,
             return;
         }
 
-        addSymbol(bucket, anchor, line, shapedTextOrientations, shapedIcon, verticallyShapedIcon, bucket.layers[0],
+        addSymbol(bucket, anchor, line, shapedTextOrientations, shapedIcon, imageMap, verticallyShapedIcon, bucket.layers[0],
             bucket.collisionBoxArray, feature.index, feature.sourceLayerIndex, bucket.index,
             textBoxScale, textPadding, textAlongLine, textOffset,
             iconBoxScale, iconPadding, iconAlongLine, iconOffset,
-            feature, glyphPositionMap, sizes, isSDFIcon);
+            feature, sizes, isSDFIcon);
     };
 
     if (symbolPlacement === 'line') {
@@ -473,6 +472,7 @@ export {MAX_GLYPH_ICON_SIZE, MAX_PACKED_SIZE};
 function addTextVertices(bucket: SymbolBucket,
                          anchor: Point,
                          shapedText: Shaping,
+                         imageMap: {[string]: StyleImage},
                          layer: SymbolStyleLayer,
                          textAlongLine: boolean,
                          feature: SymbolFeature,
@@ -481,11 +481,10 @@ function addTextVertices(bucket: SymbolBucket,
                          writingMode: number,
                          placementTypes: Array<'vertical' | 'center' | 'left' | 'right'>,
                          placedTextSymbolIndices: {[string]: number},
-                         glyphPositionMap: {[string]: {[number]: GlyphPosition}},
                          placedIconIndex: number,
                          sizes: Sizes) {
     const glyphQuads = getGlyphQuads(anchor, shapedText, textOffset,
-                            layer, textAlongLine, feature, glyphPositionMap, bucket.allowVerticalPlacement);
+                            layer, textAlongLine, feature, imageMap, bucket.allowVerticalPlacement);
 
     const sizeData = bucket.textSizeData;
     let textSizeData = null;
@@ -548,6 +547,7 @@ function addSymbol(bucket: SymbolBucket,
                    line: Array<Point>,
                    shapedTextOrientations: any,
                    shapedIcon: PositionedIcon | void,
+                   imageMap: {[string]: StyleImage},
                    verticallyShapedIcon: PositionedIcon | void,
                    layer: SymbolStyleLayer,
                    collisionBoxArray: CollisionBoxArray,
@@ -563,7 +563,6 @@ function addSymbol(bucket: SymbolBucket,
                    iconAlongLine: boolean,
                    iconOffset: [number, number],
                    feature: SymbolFeature,
-                   glyphPositionMap: {[string]: {[number]: GlyphPosition}},
                    sizes: Sizes,
                    isSDFIcon: boolean) {
     const lineArray = bucket.addToLineVertexArray(anchor, line);
@@ -681,10 +680,10 @@ function addSymbol(bucket: SymbolBucket,
 
         const singleLine = shaping.lineCount === 1;
         numHorizontalGlyphVertices += addTextVertices(
-            bucket, anchor, shaping, layer, textAlongLine, feature, textOffset, lineArray,
+            bucket, anchor, shaping, imageMap, layer, textAlongLine, feature, textOffset, lineArray,
             shapedTextOrientations.vertical ? WritingMode.horizontal : WritingMode.horizontalOnly,
             singleLine ? (Object.keys(shapedTextOrientations.horizontal): any) : [justification],
-            placedTextSymbolIndices, glyphPositionMap, placedIconSymbolIndex, sizes);
+            placedTextSymbolIndices, placedIconSymbolIndex, sizes);
 
         if (singleLine) {
             break;
@@ -693,8 +692,8 @@ function addSymbol(bucket: SymbolBucket,
 
     if (shapedTextOrientations.vertical) {
         numVerticalGlyphVertices += addTextVertices(
-            bucket, anchor, shapedTextOrientations.vertical, layer, textAlongLine, feature,
-            textOffset, lineArray, WritingMode.vertical, ['vertical'], placedTextSymbolIndices, glyphPositionMap, verticalPlacedIconSymbolIndex, sizes);
+            bucket, anchor, shapedTextOrientations.vertical, imageMap, layer, textAlongLine, feature,
+            textOffset, lineArray, WritingMode.vertical, ['vertical'], placedTextSymbolIndices, verticalPlacedIconSymbolIndex, sizes);
     }
 
     const textBoxStartIndex = textCollisionFeature ? textCollisionFeature.boxStartIndex : bucket.collisionBoxArray.length;

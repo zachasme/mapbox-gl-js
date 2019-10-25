@@ -6,9 +6,11 @@ import {GLYPH_PBF_BORDER} from '../style/parse_glyph_pbf';
 
 import type Anchor from './anchor';
 import type {PositionedIcon, Shaping} from './shaping';
+import {SHAPING_DEFAULT_OFFSET} from './shaping';
 import type SymbolStyleLayer from '../style/style_layer/symbol_style_layer';
 import type {Feature} from '../style-spec/expression';
 import type {GlyphPosition} from '../render/glyph_atlas';
+import type {StyleImage} from '../style/style_image';
 import ONE_EM from './one_em';
 
 /**
@@ -101,7 +103,7 @@ export function getGlyphQuads(anchor: Anchor,
                        layer: SymbolStyleLayer,
                        alongLine: boolean,
                        feature: Feature,
-                       positions: {[string]: {[number]: GlyphPosition}},
+                       imageMap: {[string]: StyleImage},
                        allowVerticalPlacement: boolean): Array<SymbolQuad> {
 
     const textRotate = layer.layout.get('text-rotate').evaluate(feature, {}) * Math.PI / 180;
@@ -109,20 +111,22 @@ export function getGlyphQuads(anchor: Anchor,
     const positionedGlyphs = shaping.positionedGlyphs;
     const quads = [];
 
-    for (let k = 0; k < positionedGlyphs.length; k++) {
-        const positionedGlyph = positionedGlyphs[k];
-        const glyphPositions = positions[positionedGlyph.fontStack];
-        const glyph = glyphPositions && glyphPositions[positionedGlyph.glyph];
-        if (!glyph) continue;
+    for (let i = 0; i < positionedGlyphs.length; ++i) {
+        const positionedGlyph = positionedGlyphs[i];
 
-        const rect = glyph.rect;
-        if (!rect) continue;
+        // The rects have an additional buffer that is not included in their size.
+        let glyphPadding = 1.0;
+        let rectBuffer = GLYPH_PBF_BORDER + glyphPadding;
+        let isSDF = true;
 
-        // The rects have an addditional buffer that is not included in their size.
-        const glyphPadding = 1.0;
-        const rectBuffer = GLYPH_PBF_BORDER + glyphPadding;
+        if (positionedGlyph.imageName) {
+            const image = imageMap[positionedGlyph.imageName];
+            rectBuffer = 0.0;
+            isSDF = image.sdf;
+            positionedGlyph.scale = positionedGlyph.scale / image.pixelRatio;
+        }
 
-        const halfAdvance = glyph.metrics.advance * positionedGlyph.scale / 2;
+        const halfAdvance = positionedGlyph.metrics.advance * positionedGlyph.scale / 2;
 
         const glyphOffset = alongLine ?
             [positionedGlyph.x + halfAdvance, positionedGlyph.y] :
@@ -142,10 +146,10 @@ export function getGlyphQuads(anchor: Anchor,
             builtInOffset = [0, 0];
         }
 
-        const x1 = (glyph.metrics.left - rectBuffer) * positionedGlyph.scale - halfAdvance + builtInOffset[0];
-        const y1 = (-glyph.metrics.top - rectBuffer) * positionedGlyph.scale + builtInOffset[1];
-        const x2 = x1 + rect.w * positionedGlyph.scale;
-        const y2 = y1 + rect.h * positionedGlyph.scale;
+        const x1 = (positionedGlyph.metrics.left - rectBuffer) * positionedGlyph.scale - halfAdvance + builtInOffset[0];
+        const y1 = (-positionedGlyph.metrics.top - rectBuffer) * positionedGlyph.scale + builtInOffset[1];
+        const x2 = x1 + positionedGlyph.rect.w * positionedGlyph.scale;
+        const y2 = y1 + positionedGlyph.rect.h * positionedGlyph.scale;
 
         const tl = new Point(x1, y1);
         const tr = new Point(x2, y1);
@@ -162,13 +166,13 @@ export function getGlyphQuads(anchor: Anchor,
             // necessary, but we also pull the glyph to the left along the x axis.
             // The y coordinate includes baseline yOffset, thus needs to be accounted
             // for when glyph is rotated and translated.
-            const center = new Point(-halfAdvance, halfAdvance - shaping.yOffset);
+            const center = new Point(-halfAdvance, halfAdvance - SHAPING_DEFAULT_OFFSET);
             const verticalRotation = -Math.PI / 2;
 
             // xHalfWidhtOffsetcorrection is a difference between full-width and half-width
             // advance, should be 0 for full-width glyphs and will pull up half-width glyphs.
             const xHalfWidhtOffsetcorrection = ONE_EM / 2 - halfAdvance;
-            const xOffsetCorrection = new Point(5 - shaping.yOffset - xHalfWidhtOffsetcorrection, 0);
+            const xOffsetCorrection = new Point(5 - SHAPING_DEFAULT_OFFSET - xHalfWidhtOffsetcorrection, 0);
             const verticalOffsetCorrection = new Point(...verticalizedLabelOffset);
             tl._rotateAround(verticalRotation, center)._add(xOffsetCorrection)._add(verticalOffsetCorrection);
             tr._rotateAround(verticalRotation, center)._add(xOffsetCorrection)._add(verticalOffsetCorrection);
@@ -187,7 +191,7 @@ export function getGlyphQuads(anchor: Anchor,
             br._matMult(matrix);
         }
 
-        quads.push({tl, tr, bl, br, tex: rect, writingMode: shaping.writingMode, glyphOffset, sectionIndex: positionedGlyph.sectionIndex, isSDF: true});
+        quads.push({tl, tr, bl, br, tex: positionedGlyph.rect, writingMode: shaping.writingMode, glyphOffset, sectionIndex: positionedGlyph.sectionIndex, isSDF});
     }
 
     return quads;

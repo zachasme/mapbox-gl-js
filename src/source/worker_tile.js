@@ -182,7 +182,7 @@ class WorkerTile {
                     const bucket = buckets[key];
                     if (bucket instanceof SymbolBucket) {
                         recalculateLayers(bucket.layers, this.zoom, availableImages);
-                        performSymbolLayout(bucket, glyphMap, glyphAtlas.positions, iconMap, imageAtlas.iconPositions, this.showCollisionBoxes);
+                        performSymbolLayout(bucket, glyphAtlas.positions, iconMap, imageAtlas.iconPositions, this.showCollisionBoxes);
                     } else if (bucket.hasPattern &&
                         (bucket instanceof LineBucket ||
                          bucket instanceof FillBucket ||
