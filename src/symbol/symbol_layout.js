@@ -258,7 +258,7 @@ export function performSymbolLayout(bucket: SymbolBucket,
                                                   justification, spacingIfAllowed, textOffset, WritingMode.horizontal, false, symbolPlacement);
                         if (shaping) {
                             shapedTextOrientations.horizontal[justification] = shaping;
-                            singleLine = shaping.lineCount === 1;
+                            singleLine = shaping.positionedLines.length === 1;
                         }
                     }
                 }
@@ -678,7 +678,7 @@ function addSymbol(bucket: SymbolBucket,
             textCollisionFeature = new CollisionFeature(collisionBoxArray, line, anchor, featureIndex, sourceLayerIndex, bucketIndex, shaping, textBoxScale, textPadding, textAlongLine, bucket.overscaling, textRotate);
         }
 
-        const singleLine = shaping.lineCount === 1;
+        const singleLine = shaping.positionedLines.length === 1;
         numHorizontalGlyphVertices += addTextVertices(
             bucket, anchor, shaping, imageMap, layer, textAlongLine, feature, textOffset, lineArray,
             shapedTextOrientations.vertical ? WritingMode.horizontal : WritingMode.horizontalOnly,
