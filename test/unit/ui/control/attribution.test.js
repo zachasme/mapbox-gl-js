@@ -1,17 +1,17 @@
 import {test} from '../../../util/test';
 import config from '../../../../src/util/config';
 import AttributionControl from '../../../../src/ui/control/attribution_control';
-import {createMap as globalCreateMap} from '../../../util';
+import {createMap as globalCreateMap, createStyle} from '../../../util';
 
 function createMap(t) {
     config.ACCESS_TOKEN = 'pk.123';
-
+    const style = createStyle();
     return globalCreateMap(t, {
         attributionControl: false,
         style: {
             version: 8,
-            sources: {},
-            layers: [],
+            sources: style.sources,
+            layers: style.layers,
             owner: 'mapbox',
             id: 'streets-v10',
         },
