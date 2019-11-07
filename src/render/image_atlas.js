@@ -21,10 +21,14 @@ export class ImagePosition {
     paddedRect: Rect;
     pixelRatio: number;
     version: number;
+    stretchY: Array<Array<number>> | void;
+    stretchX: Array<Array<number>> | void;
 
-    constructor(paddedRect: Rect, {pixelRatio, version}: StyleImage) {
+    constructor(paddedRect: Rect, {pixelRatio, version, stretchX, stretchY}: StyleImage) {
         this.paddedRect = paddedRect;
         this.pixelRatio = pixelRatio;
+        this.stretchX = stretchX;
+        this.stretchY = stretchY;
         this.version = version;
     }
 

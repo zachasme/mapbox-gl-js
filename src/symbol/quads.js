@@ -35,6 +35,8 @@ export type SymbolQuad = {
         w: number,
         h: number
     },
+    pixelOffsetTL: Point,
+    pixelOffsetBR: Point,
     writingMode: any | void,
     glyphOffset: [number, number],
     sectionIndex: number
@@ -47,46 +49,150 @@ export type SymbolQuad = {
 export function getIconQuads(
                       shapedIcon: PositionedIcon,
                       iconRotate: number): Array<SymbolQuad> {
-    const image = shapedIcon.image;
+
+    const quads = [];
 
     // If you have a 10px icon that isn't perfectly aligned to the pixel grid it will cover 11 actual
     // pixels. The quad needs to be padded to account for this, otherwise they'll look slightly clipped
     // on one edge in some cases.
     const border = 1;
 
-    // Expand the box to respect the 1 pixel border in the atlas image. We're using `image.paddedRect - border`
-    // instead of image.displaySize because we only pad with one pixel for retina images as well, and the
-    // displaySize uses the logical dimensions, not the physical pixel dimensions.
+    const image = shapedIcon.image;
+    const imageWidth = image.paddedRect.w - 2 * border;
+    const imageHeight = image.paddedRect.h - 2 * border;
+
     const iconWidth = shapedIcon.right - shapedIcon.left;
-    const expandX = (iconWidth * image.paddedRect.w / (image.paddedRect.w - 2 * border) - iconWidth) / 2;
-    const left = shapedIcon.left - expandX;
-    const right = shapedIcon.right + expandX;
-
     const iconHeight = shapedIcon.bottom - shapedIcon.top;
-    const expandY = (iconHeight * image.paddedRect.h / (image.paddedRect.h - 2 * border) - iconHeight) / 2;
-    const top = shapedIcon.top - expandY;
-    const bottom = shapedIcon.bottom + expandY;
 
-    const tl = new Point(left, top);
-    const tr = new Point(right, top);
-    const br = new Point(right, bottom);
-    const bl = new Point(left, bottom);
+    //const stretchX = image.stretchX || [[-border, imageWidth + border]];
+    //const stretchY = image.stretchY || [[-border, imageHeight + border]];
+    const stretchX = image.stretchX || [[0, imageWidth]];
+    const stretchY = image.stretchY || [[0, imageHeight]];
+    //const stretchX = image.stretchX || [];
+    //const stretchY = image.stretchY || [];
 
-    const angle = iconRotate * Math.PI / 180;
+    const reduceRanges = (sum, range) => sum + range[1] - range[0];
+    const totalStretchX = stretchX.reduce(reduceRanges, 0);
+    const totalStretchY = stretchY.reduce(reduceRanges, 0);
+    const totalFixedX = imageWidth - totalStretchX;
+    const totalFixedY = imageHeight - totalStretchY;
 
-    if (angle) {
-        const sin = Math.sin(angle),
-            cos = Math.cos(angle),
-            matrix = [cos, -sin, sin, cos];
 
-        tl._matMult(matrix);
-        tr._matMult(matrix);
-        bl._matMult(matrix);
-        br._matMult(matrix);
+    const getCut = (ranges, n, fallback) => {
+        const range = ranges[Math.floor(n / 2)];
+        if (range === undefined) return fallback;
+        return range[n % 2];
+    };
+
+
+    let leftFixedX = 0;
+    let leftStretchX = 0;
+    const emOffsetX = () => leftStretchX / totalStretchX * iconWidth + shapedIcon.left;
+    const pxOffsetX = () => leftFixedX - totalFixedX * leftStretchX / totalStretchX;
+    for (let x = -1; x < stretchX.length * 2; x++ ) {
+        const isStretchX = x % 2 === 0;
+        let x1 = getCut(stretchX, x, -border);
+        const x2 = getCut(stretchX, x + 1, imageWidth + border);
+        if (x1 === x2) continue;
+
+        if (x1 <= 0) x1 = -border;
+
+        if (isStretchX) {
+            leftStretchX = x1 - leftFixedX;
+        } else {
+            leftFixedX = x1 - leftStretchX;
+        }
+        /*
+        if (x1 <= 0) {
+            if (isStretch) {
+                leftSretch = -1;
+            } else {
+            }
+        }
+        */
+        //if (x1 <= 0) leftStretchX = -border;
+        const dx = x2 - x1;
+
+        console.log(leftStretchX, x1 - leftFixedX, x1, leftFixedX);
+        const left = emOffsetX();
+        const leftPx = pxOffsetX();
+
+        if (isStretchX) {
+            leftStretchX += dx;
+        } else {
+            leftFixedX += dx;
+        }
+
+        const right = emOffsetX();
+        const rightPx = pxOffsetX();
+
+        let leftFixedY = 0;
+        let leftStretchY = 0;
+        const emOffsetY = () => leftStretchY / totalStretchY * iconHeight + shapedIcon.top;
+        const pxOffsetY = () => leftFixedY - totalFixedY * leftStretchY / totalStretchY;
+            //quads.push(makeQuad(x1, x2, -1, imageHeight + 1, isStretchX, true));
+        //continue;
+        for (let y = -1; y < stretchY.length * 2; y++) {
+            const isStretchY = y % 2 === 0;
+            const y1 = getCut(stretchY, y, -border);
+            const y2 = getCut(stretchY, y + 1, imageHeight + border);
+            if (y1 === y2) continue;
+            if (y1 <= 0) leftStretchY = -border;
+
+            const dy = y2 - y1;
+
+            // Expand the box to respect the 1 pixel border in the atlas image. We're using `image.paddedRect - border`
+            // instead of image.displaySize because we only pad with one pixel for retina images as well, and the
+            // displaySize uses the logical dimensions, not the physical pixel dimensions.
+
+
+            const top = emOffsetY();
+            const topPx = pxOffsetY();
+
+            if (isStretchY) {
+                leftStretchY += dy;
+            } else {
+                leftFixedY += dy;
+            }
+
+            const bottom = emOffsetY();
+            const bottomPx = pxOffsetY();
+
+            const tl = new Point(left, top);
+            const tr = new Point(right, top);
+            const br = new Point(right, bottom);
+            const bl = new Point(left, bottom);
+
+            const angle = iconRotate * Math.PI / 180;
+
+            if (angle) {
+                const sin = Math.sin(angle),
+                    cos = Math.cos(angle),
+                    matrix = [cos, -sin, sin, cos];
+
+                tl._matMult(matrix);
+                tr._matMult(matrix);
+                bl._matMult(matrix);
+                br._matMult(matrix);
+            }
+
+            const subRect = {
+                x: image.paddedRect.x + border + x1,
+                y: image.paddedRect.y + border + y1,
+                w: dx,
+                h: dy
+            };
+
+            const pixelOffsetTL = new Point(leftPx, topPx);
+            const pixelOffsetBR = new Point(rightPx, bottomPx);
+
+
+            // Icon quad is padded, so texture coordinates also need to be padded.
+            const quad = {tl, tr, bl, br, tex: subRect, writingMode: undefined, glyphOffset: [0, 0], sectionIndex: 0, pixelOffsetTL, pixelOffsetBR };
+        quads.push(quad);
+        }
     }
-
-    // Icon quad is padded, so texture coordinates also need to be padded.
-    return [{tl, tr, bl, br, tex: image.paddedRect, writingMode: undefined, glyphOffset: [0, 0], sectionIndex: 0}];
+    return quads;
 }
 
 /**
@@ -185,7 +291,9 @@ export function getGlyphQuads(anchor: Anchor,
             br._matMult(matrix);
         }
 
-        quads.push({tl, tr, bl, br, tex: rect, writingMode: shaping.writingMode, glyphOffset, sectionIndex: positionedGlyph.sectionIndex});
+        const pixelOffsetTL = new Point(0, 0);
+        const pixelOffsetBR = new Point(0, 0);
+        quads.push({tl, tr, bl, br, tex: rect, writingMode: shaping.writingMode, glyphOffset, sectionIndex: positionedGlyph.sectionIndex, pixelOffsetTL, pixelOffsetBR});
     }
 
     return quads;

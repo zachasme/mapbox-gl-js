@@ -150,6 +150,8 @@ class ImageManager extends Evented {
                     pixelRatio: image.pixelRatio,
                     sdf: image.sdf,
                     version: image.version,
+                    stretchX: image.stretchX,
+                    stretchY: image.stretchY,
                     hasRenderCallback: Boolean(image.userImage && image.userImage.render)
                 };
             } else {
