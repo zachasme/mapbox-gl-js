@@ -189,6 +189,8 @@ export function performSymbolLayout(bucket: SymbolBucket,
 
     for (const feature of bucket.features) {
         const fontstack = layout.get('text-font').evaluate(feature, {}).join(',');
+        const layoutTextSize = sizes.layoutTextSize.evaluate(feature, {});
+        const layoutIconSize = sizes.layoutIconSize.evaluate(feature, {});
 
         const shapedTextOrientations = {
             horizontal: {},
@@ -232,7 +234,7 @@ export function performSymbolLayout(bucket: SymbolBucket,
                     // writing mode, thus, default left justification is used. If Latin
                     // scripts would need to be supported, this should take into account other justifications.
                     shapedTextOrientations.vertical = shapeText(text, glyphPositions, imagePositions, fontstack, maxWidth, lineHeight, textAnchor,
-                                                                'left', spacingIfAllowed, textOffset, WritingMode.vertical, true, symbolPlacement);
+                                                                'left', spacingIfAllowed, textOffset, WritingMode.vertical, true, symbolPlacement, layoutTextSize);
                 }
             };
 
@@ -254,7 +256,7 @@ export function performSymbolLayout(bucket: SymbolBucket,
                         // If using text-variable-anchor for the layer, we use a center anchor for all shapings and apply
                         // the offsets for the anchor in the placement step.
                         const shaping = shapeText(text, glyphPositions, imagePositions, fontstack, maxWidth, lineHeight, 'center',
-                                                  justification, spacingIfAllowed, textOffset, WritingMode.horizontal, false, symbolPlacement);
+                                                  justification, spacingIfAllowed, textOffset, WritingMode.horizontal, false, symbolPlacement, layoutTextSize);
                         if (shaping) {
                             shapedTextOrientations.horizontal[justification] = shaping;
                             singleLine = shaping.positionedLines.length === 1;
@@ -270,7 +272,7 @@ export function performSymbolLayout(bucket: SymbolBucket,
 
                 // Horizontal point or line label.
                 const shaping = shapeText(text, glyphPositions, imagePositions, fontstack, maxWidth, lineHeight, textAnchor, textJustify, spacingIfAllowed,
-                                          textOffset, WritingMode.horizontal, false, symbolPlacement);
+                                          textOffset, WritingMode.horizontal, false, symbolPlacement, layoutTextSize);
                 if (shaping) shapedTextOrientations.horizontal[textJustify] = shaping;
 
                 // Vertical point label (if allowVerticalPlacement is enabled).
@@ -279,7 +281,7 @@ export function performSymbolLayout(bucket: SymbolBucket,
                 // Verticalized line label.
                 if (allowsVerticalWritingMode(unformattedText) && textAlongLine && keepUpright) {
                     shapedTextOrientations.vertical = shapeText(text, glyphPositions, imagePositions, fontstack, maxWidth, lineHeight, textAnchor, textJustify,
-                                                                spacingIfAllowed, textOffset, WritingMode.vertical, false, symbolPlacement);
+                                                                spacingIfAllowed, textOffset, WritingMode.vertical, false, symbolPlacement, layoutTextSize);
                 }
             }
         }
@@ -310,7 +312,7 @@ export function performSymbolLayout(bucket: SymbolBucket,
         const shapedText = getDefaultHorizontalShaping(shapedTextOrientations.horizontal) || shapedTextOrientations.vertical;
         bucket.iconsInText = shapedText ? shapedText.iconsInText : false;
         if (shapedText || shapedIcon) {
-            addFeature(bucket, feature, shapedTextOrientations, shapedIcon, imageMap, sizes, textOffset, isSDFIcon);
+            addFeature(bucket, feature, shapedTextOrientations, shapedIcon, imageMap, sizes, layoutTextSize, layoutIconSize, textOffset, isSDFIcon);
         }
     }
 
@@ -347,11 +349,10 @@ function addFeature(bucket: SymbolBucket,
                     shapedIcon: PositionedIcon | void,
                     imageMap: {[string]: StyleImage},
                     sizes: Sizes,
+                    layoutTextSize: number,
+                    layoutIconSize: number,
                     textOffset: [number, number],
                     isSDFIcon: boolean) {
-    const layoutTextSize = sizes.layoutTextSize.evaluate(feature, {});
-    const layoutIconSize = sizes.layoutIconSize.evaluate(feature, {});
-
     // To reduce the number of labels that jump around when zooming we need
     // to use a text-size value that is the same for all zoom levels.
     // bucket calculates text-size at a high zoom level so that all tiles can

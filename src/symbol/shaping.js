@@ -23,8 +23,6 @@ const WritingMode = {
     horizontalOnly: 3
 };
 
-// Ratio between default font size and EM unit
-const BASE_FONT_RATIO = (1 / (16 / ONE_EM));
 const SHAPING_DEFAULT_OFFSET = -17;
 export {shapeText, shapeIcon, fitIconToText, getAnchorAlignment, WritingMode, SHAPING_DEFAULT_OFFSET};
 
@@ -249,7 +247,8 @@ function shapeText(text: Formatted,
                    translate: [number, number],
                    writingMode: 1 | 2,
                    allowVerticalPlacement: boolean,
-                   symbolPlacement: string): Shaping | false {
+                   symbolPlacement: string,
+                   layoutTextSize: number): Shaping | false {
     const logicalInput = TaggedString.fromFeature(text, defaultFontStack);
 
     if (writingMode === WritingMode.vertical) {
@@ -264,7 +263,7 @@ function shapeText(text: Formatted,
         lines = [];
         const untaggedLines =
             processBidirectionalText(logicalInput.toString(),
-                                     determineLineBreaks(logicalInput, spacing, maxWidth, glyphPositions, imagePositions, symbolPlacement));
+                                     determineLineBreaks(logicalInput, spacing, maxWidth, glyphPositions, imagePositions, symbolPlacement, layoutTextSize));
         for (const line of untaggedLines) {
             const taggedLine = new TaggedString();
             taggedLine.text = line;
@@ -281,7 +280,7 @@ function shapeText(text: Formatted,
         const processedLines =
             processStyledBidirectionalText(logicalInput.text,
                                            logicalInput.sectionIndex,
-                                           determineLineBreaks(logicalInput, spacing, maxWidth, glyphPositions, imagePositions, symbolPlacement));
+                                           determineLineBreaks(logicalInput, spacing, maxWidth, glyphPositions, imagePositions, symbolPlacement, layoutTextSize));
         for (const line of processedLines) {
             const taggedLine = new TaggedString();
             taggedLine.text = line[0];
@@ -290,7 +289,7 @@ function shapeText(text: Formatted,
             lines.push(taggedLine);
         }
     } else {
-        lines = breakLines(logicalInput, determineLineBreaks(logicalInput, spacing, maxWidth, glyphPositions, imagePositions, symbolPlacement));
+        lines = breakLines(logicalInput, determineLineBreaks(logicalInput, spacing, maxWidth, glyphPositions, imagePositions, symbolPlacement, layoutTextSize));
     }
 
     const positionedLines = [];
@@ -306,7 +305,7 @@ function shapeText(text: Formatted,
         verticalizable: false
     };
 
-    shapeLines(shaping, glyphPositions, imagePositions, lines, lineHeight, textAnchor, textJustify, writingMode, spacing, allowVerticalPlacement);
+    shapeLines(shaping, glyphPositions, imagePositions, lines, lineHeight, textAnchor, textJustify, writingMode, spacing, allowVerticalPlacement, layoutTextSize);
     if (isEmpty(positionedLines)) return false;
 
     return shaping;
@@ -348,7 +347,8 @@ function getGlyphAdvance(codePoint: number,
                          section: SectionOptions,
                          glyphPositions: {[string]: {[number]: GlyphPosition}},
                          imagePositions: {[string]: ImagePosition},
-                         spacing: number): number | null {
+                         spacing: number,
+                         layoutTextSize: number): number | null {
     if (!section.imageName) {
         const positions = glyphPositions[section.fontStack];
         const glyph = positions && positions[codePoint];
@@ -357,7 +357,7 @@ function getGlyphAdvance(codePoint: number,
     } else {
         const imagePosition = imagePositions[section.imageName];
         if (!imagePosition) return null;
-        return imagePosition.displaySize[0] * section.scale * BASE_FONT_RATIO + spacing;
+        return imagePosition.displaySize[0] * section.scale * ONE_EM / layoutTextSize + spacing;
     }
 }
 
@@ -365,12 +365,13 @@ function determineAverageLineWidth(logicalInput: TaggedString,
                                    spacing: number,
                                    maxWidth: number,
                                    glyphPositions: {[string]: {[number]: GlyphPosition}},
-                                   imagePositions: {[string]: ImagePosition}) {
+                                   imagePositions: {[string]: ImagePosition},
+                                   layoutTextSize: number) {
     let totalWidth = 0;
 
     for (let index = 0; index < logicalInput.length(); index++) {
         const section = logicalInput.getSection(index);
-        const advance = getGlyphAdvance(logicalInput.getCharCode(index), section, glyphPositions, imagePositions, spacing);
+        const advance = getGlyphAdvance(logicalInput.getCharCode(index), section, glyphPositions, imagePositions, spacing, layoutTextSize);
         if (advance) totalWidth += advance;
     }
 
@@ -470,7 +471,8 @@ function determineLineBreaks(logicalInput: TaggedString,
                              maxWidth: number,
                              glyphPositions: {[string]: {[number]: GlyphPosition}},
                              imagePositions: {[string]: ImagePosition},
-                             symbolPlacement: string): Array<number> {
+                             symbolPlacement: string,
+                             layoutTextSize: number): Array<number> {
     if (symbolPlacement !== 'point')
         return [];
 
@@ -478,7 +480,7 @@ function determineLineBreaks(logicalInput: TaggedString,
         return [];
 
     const potentialLineBreaks = [];
-    const targetWidth = determineAverageLineWidth(logicalInput, spacing, maxWidth, glyphPositions, imagePositions);
+    const targetWidth = determineAverageLineWidth(logicalInput, spacing, maxWidth, glyphPositions, imagePositions, layoutTextSize);
 
     const hasServerSuggestedBreakpoints = logicalInput.text.indexOf("\u200b") >= 0;
 
@@ -487,7 +489,7 @@ function determineLineBreaks(logicalInput: TaggedString,
     for (let i = 0; i < logicalInput.length(); i++) {
         const section = logicalInput.getSection(i);
         const codePoint = logicalInput.getCharCode(i);
-        if (!whitespace[codePoint]) currentX += getGlyphAdvance(codePoint, section, glyphPositions, imagePositions, spacing);
+        if (!whitespace[codePoint]) currentX += getGlyphAdvance(codePoint, section, glyphPositions, imagePositions, spacing, layoutTextSize);
 
         // Ideographic characters, spaces, and word-breaking punctuation that often appear without
         // surrounding spaces.
@@ -558,7 +560,8 @@ function shapeLines(shaping: Shaping,
                     textJustify: TextJustify,
                     writingMode: 1 | 2,
                     spacing: number,
-                    allowVerticalPlacement: boolean) {
+                    allowVerticalPlacement: boolean,
+                    layoutTextSize: number) {
 
     let x = 0;
     let y = SHAPING_DEFAULT_OFFSET;
@@ -623,7 +626,7 @@ function shapeLines(shaping: Shaping,
                 // If needed, allow to set scale factor for an image using
                 // alias "image-scale" that could be alias for "font-scale"
                 // when FormattedSection is an image section.
-                section.scale = section.scale * BASE_FONT_RATIO;
+                section.scale = section.scale * ONE_EM / layoutTextSize;
 
                 metrics = {width: size[0],
                     height: size[1],
