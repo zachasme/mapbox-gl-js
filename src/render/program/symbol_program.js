@@ -54,7 +54,7 @@ export type SymbolSDFUniformsType = {|
     'u_is_halo': Uniform1f
 |};
 
-export type SymbolUniformsType = {|
+export type symbolTextAndIconUniformsType = {|
     'u_is_size_zoom_constant': Uniform1i,
     'u_is_size_feature_constant': Uniform1i,
     'u_size_t': Uniform1f,
@@ -67,6 +67,7 @@ export type SymbolUniformsType = {|
     'u_matrix': UniformMatrix4f,
     'u_label_plane_matrix': UniformMatrix4f,
     'u_coord_matrix': UniformMatrix4f,
+    'u_is_text': Uniform1f,
     'u_pitch_with_map': Uniform1i,
     'u_texsize': Uniform2f,
     'u_texsize_icon': Uniform2f,
@@ -118,7 +119,7 @@ const symbolSDFUniforms = (context: Context, locations: UniformLocations): Symbo
     'u_is_halo': new Uniform1f(context, locations.u_is_halo)
 });
 
-const symbolUniforms = (context: Context, locations: UniformLocations): SymbolUniformsType => ({
+const symbolTextAndIconUniforms = (context: Context, locations: UniformLocations): symbolTextAndIconUniformsType => ({
     'u_is_size_zoom_constant': new Uniform1i(context, locations.u_is_size_zoom_constant),
     'u_is_size_feature_constant': new Uniform1i(context, locations.u_is_size_feature_constant),
     'u_size_t': new Uniform1f(context, locations.u_size_t),
@@ -131,6 +132,7 @@ const symbolUniforms = (context: Context, locations: UniformLocations): SymbolUn
     'u_matrix': new UniformMatrix4f(context, locations.u_matrix),
     'u_label_plane_matrix': new UniformMatrix4f(context, locations.u_label_plane_matrix),
     'u_coord_matrix': new UniformMatrix4f(context, locations.u_coord_matrix),
+    'u_is_text': new Uniform1f(context, locations.u_is_text),
     'u_pitch_with_map': new Uniform1i(context, locations.u_pitch_with_map),
     'u_texsize': new Uniform2f(context, locations.u_texsize),
     'u_texsize_icon': new Uniform2f(context, locations.u_texsize_icon),
@@ -199,7 +201,7 @@ const symbolSDFUniformValues = (
     });
 };
 
-const symbolUniformValues = (
+const symbolTextAndIconUniformValues = (
     functionType: string,
     size: ?{uSizeT: number, uSize: number},
     rotateInShader: boolean,
@@ -211,14 +213,12 @@ const symbolUniformValues = (
     texSizeSDF: [number, number],
     texSizeIcon: [number, number]
 ): UniformValues<SymbolIconUniformsType> => {
-    const uniforms = extend(symbolSDFUniformValues(functionType, size,
+    return extend(symbolSDFUniformValues(functionType, size,
         rotateInShader, pitchWithMap, painter, matrix, labelPlaneMatrix,
         glCoordMatrix, true, texSizeSDF, true), {
         'u_texsize_icon': texSizeIcon,
         'u_texture_icon': 1
     });
-    delete uniforms['u_is_text'];
-    return uniforms;
 };
 
-export {symbolIconUniforms, symbolSDFUniforms, symbolIconUniformValues, symbolSDFUniformValues, symbolUniformValues, symbolUniforms};
+export {symbolIconUniforms, symbolSDFUniforms, symbolIconUniformValues, symbolSDFUniformValues, symbolTextAndIconUniformValues, symbolTextAndIconUniforms};

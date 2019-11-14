@@ -21,7 +21,7 @@ import {evaluateVariableOffset} from '../symbol/symbol_layout';
 import {
     symbolIconUniformValues,
     symbolSDFUniformValues,
-    symbolUniformValues
+    symbolTextAndIconUniformValues
 } from './program/symbol_program';
 
 import type Painter from './painter';
@@ -213,7 +213,7 @@ function updateVariableAnchorsForBucket(bucket, rotateWithMap, pitchWithMap, var
 
 function getSymbolProgramName(isSDF: boolean, isText: boolean, bucket: SymbolBucket) {
     if (bucket.iconsInText && isText) {
-        return 'symbol';
+        return 'symbolTextAndIcon';
     } else if (isSDF) {
         return 'symbolSDF';
     } else {
@@ -314,7 +314,7 @@ function drawLayerSymbols(painter, sourceCache, layer, coords, isText, translate
                 size, rotateInShader, pitchWithMap, painter, matrix,
                 uLabelPlaneMatrix, uglCoordMatrix, isText, texSize, true);
             } else {
-                uniformValues = symbolUniformValues(sizeData.kind,
+                uniformValues = symbolTextAndIconUniformValues(sizeData.kind,
                 size, rotateInShader, pitchWithMap, painter, matrix,
                 uLabelPlaneMatrix, uglCoordMatrix, texSize, texSizeIcon);
             }
