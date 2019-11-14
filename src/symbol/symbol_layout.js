@@ -467,7 +467,7 @@ function addFeature(bucket: SymbolBucket,
 
 const MAX_GLYPH_ICON_SIZE = 255;
 const MAX_PACKED_SIZE = MAX_GLYPH_ICON_SIZE * SIZE_PACK_FACTOR;
-export {MAX_GLYPH_ICON_SIZE, MAX_PACKED_SIZE};
+export {MAX_PACKED_SIZE};
 
 function addTextVertices(bucket: SymbolBucket,
                          anchor: Point,

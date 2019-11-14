@@ -1,8 +1,5 @@
 const float PI = 3.141592653589793;
 
-// Should be same as SDF_FLAG used when vertex is added.
-const float SDF_FLAG = 256.0 * 128.0;
-
 attribute vec4 a_pos_offset;
 attribute vec4 a_data;
 attribute vec3 a_projected_pos;
@@ -54,18 +51,16 @@ void main() {
     vec2 a_tex = a_data.xy;
     vec2 a_size = a_data.zw;
 
-    bool is_sdf = mod(a_size[0], 2.0 * SDF_FLAG) >= SDF_FLAG;
-    if (is_sdf) {
-        a_size[0] -= SDF_FLAG;
-    }
+    float a_size_min = floor(a_size[0] * 0.5);
+    float is_sdf = a_size[0] - 2.0 * a_size_min;
 
     highp float segment_angle = -a_projected_pos[2];
     float size;
 
     if (!u_is_size_zoom_constant && !u_is_size_feature_constant) {
-        size = mix(a_size[0], a_size[1], u_size_t) / 128.0;
+        size = mix(a_size_min, a_size[1], u_size_t) / 128.0;
     } else if (u_is_size_zoom_constant && !u_is_size_feature_constant) {
-        size = a_size[0] / 128.0;
+        size = a_size_min / 128.0;
     } else {
         size = u_size;
     }
@@ -117,5 +112,5 @@ void main() {
 
     v_data0.xy = a_tex / u_texsize;
     v_data0.zw = a_tex / u_texsize_icon;
-    v_data1 = vec4(gamma_scale, size, interpolated_fade_opacity, float(is_sdf));
+    v_data1 = vec4(gamma_scale, size, interpolated_fade_opacity, is_sdf);
 }
