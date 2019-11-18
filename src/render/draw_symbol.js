@@ -277,7 +277,8 @@ function drawLayerSymbols(painter, sourceCache, layer, coords, isText, translate
             if (bucket.iconsInText) {
                 texSizeIcon = tile.imageAtlasTexture.size;
                 atlasTextureIcon = tile.imageAtlasTexture;
-                atlasInterpolationIcon = transformed || painter.options.rotating || painter.options.zooming ? gl.LINEAR : gl.NEAREST;
+                const zoomDependentSize = sizeData.kind === 'composite' || sizeData.kind === 'camera';
+                atlasInterpolationIcon = transformed || painter.options.rotating || painter.options.zooming || zoomDependentSize ? gl.LINEAR : gl.NEAREST;
             }
         } else {
             const iconScaled = layer.layout.get('icon-size').constantOr(0) !== 1 || bucket.iconsNeedLinear;
