@@ -33,6 +33,7 @@
       "type": "symbol",
       "source": "point",
       "layout": {
+        "text-offset": [0.1, 0],
         "text-field": ["format", "Square ", ["image", "default_1"]],
         "text-font": [
           "Open Sans Semibold",

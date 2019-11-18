@@ -14,6 +14,7 @@ import {warnOnce} from '../util/util';
 import type {StyleGlyph, GlyphMetrics} from '../style/style_glyph';
 import {GLYPH_PBF_BORDER} from '../style/parse_glyph_pbf';
 import type {ImagePosition} from '../render/image_atlas';
+import {IMAGE_PADDING} from '../render/image_atlas';
 import type {Rect, GlyphPosition} from '../render/glyph_atlas';
 import Formatted, {FormattedSection} from '../style-spec/expression/types/formatted';
 
@@ -638,7 +639,7 @@ function shapeLines(shaping: Shaping,
 
                 metrics = {width: size[0],
                     height: size[1],
-                    left: 0,
+                    left: IMAGE_PADDING,
                     top: -GLYPH_PBF_BORDER,
                     advance: vertical ? size[1] : size[0]};
 

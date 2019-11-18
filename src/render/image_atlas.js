@@ -9,6 +9,7 @@ import type ImageManager from './image_manager';
 import type Texture from './texture';
 
 const IMAGE_PADDING = 1;
+export {IMAGE_PADDING};
 
 type Rect = {
     x: number,

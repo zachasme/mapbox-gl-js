@@ -7,6 +7,7 @@ import {GLYPH_PBF_BORDER} from '../style/parse_glyph_pbf';
 import type Anchor from './anchor';
 import type {PositionedIcon, Shaping} from './shaping';
 import {SHAPING_DEFAULT_OFFSET} from './shaping';
+import {IMAGE_PADDING} from '../render/image_atlas';
 import type SymbolStyleLayer from '../style/style_layer/symbol_style_layer';
 import type {Feature} from '../style-spec/expression';
 import type {StyleImage} from '../style/style_image';
@@ -55,7 +56,7 @@ export function getIconQuads(
     // If you have a 10px icon that isn't perfectly aligned to the pixel grid it will cover 11 actual
     // pixels. The quad needs to be padded to account for this, otherwise they'll look slightly clipped
     // on one edge in some cases.
-    const border = 1;
+    const border = IMAGE_PADDING;
 
     // Expand the box to respect the 1 pixel border in the atlas image. We're using `image.paddedRect - border`
     // instead of image.displaySize because we only pad with one pixel for retina images as well, and the
@@ -134,7 +135,7 @@ export function getGlyphQuads(anchor: Anchor,
                 const image = imageMap[positionedGlyph.imageName];
                 isSDF = image.sdf;
                 pixelRatio = image.pixelRatio;
-                rectBuffer = 0.0;
+                rectBuffer = IMAGE_PADDING / pixelRatio;
             }
 
             const glyphOffset = alongLine ?

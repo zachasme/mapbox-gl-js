@@ -37,7 +37,7 @@
           "metrics": {
             "width": 14,
             "height": 14,
-            "left": 0,
+            "left": 1,
             "top": -3,
             "advance": 14
           },
@@ -60,7 +60,7 @@
           "metrics": {
             "width": 30,
             "height": 14,
-            "left": 0,
+            "left": 1,
             "top": -3,
             "advance": 14
           },
@@ -88,7 +88,7 @@
           "metrics": {
             "width": 14,
             "height": 30,
-            "left": 0,
+            "left": 1,
             "top": -3,
             "advance": 30
           },
@@ -111,7 +111,7 @@
           "metrics": {
             "width": 14,
             "height": 14,
-            "left": 0,
+            "left": 1,
             "top": -3,
             "advance": 14
           },
