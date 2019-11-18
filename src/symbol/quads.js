@@ -110,6 +110,9 @@ export function getGlyphQuads(anchor: Anchor,
 
     for (const line of shaping.positionedLines) {
         for (const positionedGlyph of line.positionedGlyphs) {
+            if (!positionedGlyph.rect) continue;
+            const textureRect = positionedGlyph.rect || {};
+
             // The rects have an additional buffer that is not included in their size.
             const glyphPadding = 1.0;
             let rectBuffer = GLYPH_PBF_BORDER + glyphPadding;
@@ -152,8 +155,8 @@ export function getGlyphQuads(anchor: Anchor,
 
             const x1 = (positionedGlyph.metrics.left - rectBuffer) * positionedGlyph.scale - halfAdvance + builtInOffset[0];
             const y1 = (-positionedGlyph.metrics.top - rectBuffer) * positionedGlyph.scale + builtInOffset[1];
-            const x2 = x1 + positionedGlyph.rect.w * positionedGlyph.scale / pixelRatio;
-            const y2 = y1 + positionedGlyph.rect.h * positionedGlyph.scale / pixelRatio;
+            const x2 = x1 + textureRect.w * positionedGlyph.scale / pixelRatio;
+            const y2 = y1 + textureRect.h * positionedGlyph.scale / pixelRatio;
 
             const tl = new Point(x1, y1);
             const tr = new Point(x2, y1);
@@ -196,7 +199,7 @@ export function getGlyphQuads(anchor: Anchor,
                 br._matMult(matrix);
             }
 
-            quads.push({tl, tr, bl, br, tex: positionedGlyph.rect, writingMode: shaping.writingMode, glyphOffset, sectionIndex: positionedGlyph.sectionIndex, isSDF});
+            quads.push({tl, tr, bl, br, tex: textureRect, writingMode: shaping.writingMode, glyphOffset, sectionIndex: positionedGlyph.sectionIndex, isSDF});
         }
     }
 

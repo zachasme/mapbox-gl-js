@@ -24,6 +24,7 @@ import type {Shaping, PositionedIcon, TextJustify} from './shaping';
 import type {CollisionBoxArray} from '../data/array_types';
 import type {SymbolFeature} from '../data/bucket/symbol_bucket';
 import type {StyleImage} from '../style/style_image';
+import type {StyleGlyph} from '../style/style_glyph';
 import type SymbolStyleLayer from '../style/style_layer/symbol_style_layer';
 import type {ImagePosition} from '../render/image_atlas';
 import type {GlyphPosition} from '../render/glyph_atlas';
@@ -147,6 +148,7 @@ export function evaluateVariableOffset(anchor: TextAnchor, offset: [number, numb
 }
 
 export function performSymbolLayout(bucket: SymbolBucket,
+                             glyphMap: {[string]: {[number]: ?StyleGlyph}},
                              glyphPositions: {[string]: {[number]: GlyphPosition}},
                              imageMap: {[string]: StyleImage},
                              imagePositions: {[string]: ImagePosition},
@@ -233,7 +235,7 @@ export function performSymbolLayout(bucket: SymbolBucket,
                     // Vertical POI label placement is meant to be used for scripts that support vertical
                     // writing mode, thus, default left justification is used. If Latin
                     // scripts would need to be supported, this should take into account other justifications.
-                    shapedTextOrientations.vertical = shapeText(text, glyphPositions, imagePositions, fontstack, maxWidth, lineHeight, textAnchor,
+                    shapedTextOrientations.vertical = shapeText(text, glyphMap, glyphPositions, imagePositions, fontstack, maxWidth, lineHeight, textAnchor,
                                                                 'left', spacingIfAllowed, textOffset, WritingMode.vertical, true, symbolPlacement, layoutTextSize);
                 }
             };
@@ -255,7 +257,7 @@ export function performSymbolLayout(bucket: SymbolBucket,
                     } else {
                         // If using text-variable-anchor for the layer, we use a center anchor for all shapings and apply
                         // the offsets for the anchor in the placement step.
-                        const shaping = shapeText(text, glyphPositions, imagePositions, fontstack, maxWidth, lineHeight, 'center',
+                        const shaping = shapeText(text, glyphMap, glyphPositions, imagePositions, fontstack, maxWidth, lineHeight, 'center',
                                                   justification, spacingIfAllowed, textOffset, WritingMode.horizontal, false, symbolPlacement, layoutTextSize);
                         if (shaping) {
                             shapedTextOrientations.horizontal[justification] = shaping;
@@ -271,7 +273,7 @@ export function performSymbolLayout(bucket: SymbolBucket,
                 }
 
                 // Horizontal point or line label.
-                const shaping = shapeText(text, glyphPositions, imagePositions, fontstack, maxWidth, lineHeight, textAnchor, textJustify, spacingIfAllowed,
+                const shaping = shapeText(text, glyphMap, glyphPositions, imagePositions, fontstack, maxWidth, lineHeight, textAnchor, textJustify, spacingIfAllowed,
                                           textOffset, WritingMode.horizontal, false, symbolPlacement, layoutTextSize);
                 if (shaping) shapedTextOrientations.horizontal[textJustify] = shaping;
 
@@ -280,7 +282,7 @@ export function performSymbolLayout(bucket: SymbolBucket,
 
                 // Verticalized line label.
                 if (allowsVerticalWritingMode(unformattedText) && textAlongLine && keepUpright) {
-                    shapedTextOrientations.vertical = shapeText(text, glyphPositions, imagePositions, fontstack, maxWidth, lineHeight, textAnchor, textJustify,
+                    shapedTextOrientations.vertical = shapeText(text, glyphMap, glyphPositions, imagePositions, fontstack, maxWidth, lineHeight, textAnchor, textJustify,
                                                                 spacingIfAllowed, textOffset, WritingMode.vertical, false, symbolPlacement, layoutTextSize);
                 }
             }

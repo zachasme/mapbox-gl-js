@@ -33,6 +33,7 @@ export default class SymbolLayout extends Layout {
                 for (const bucket of tileResult.buckets) {
                     if (bucket instanceof SymbolBucket) {
                         performSymbolLayout(bucket,
+                                            tileResult.glyphMap,
                                             tileResult.glyphPositions,
                                             tileResult.iconMap,
                                             tileResult.imageAtlas.iconPositions,
